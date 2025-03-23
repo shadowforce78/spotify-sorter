@@ -139,6 +139,139 @@ a.secondary {
   font-weight: 600 !important;
 }
 
+.authOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.authButton {
+  appearance: none;
+  border-radius: 30px;
+  height: 48px;
+  padding: 0 20px;
+  border: 1px solid var(--gray-alpha-200);
+  transition: all 0.2s;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 500;
+  gap: 12px;
+  width: 100%;
+}
+
+.spotifyButton {
+  background-color: var(--spotify-green);
+  color: white;
+  border-color: transparent;
+}
+
+.googleButton {
+  background-color: white;
+  color: #757575;
+  border-color: #ddd;
+}
+
+.credentialsButton {
+  background-color: transparent;
+  border-color: var(--gray-alpha-200);
+}
+
+.orDivider {
+  display: flex;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.orDivider::before,
+.orDivider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid var(--gray-alpha-200);
+}
+
+.orDivider span {
+  padding: 0 12px;
+  color: var(--foreground);
+  opacity: 0.7;
+  font-size: 14px;
+}
+
+/* Modal styles */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(5px);
+}
+
+.modal {
+  background-color: var(--background);
+  border-radius: 8px;
+  padding: 24px;
+  width: 90%;
+  max-width: 420px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  position: relative;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 24px;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  cursor: pointer;
+  color: var(--foreground);
+  opacity: 0.7;
+}
+
+.modal h2 {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.formGroup input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--gray-alpha-200);
+  background-color: var(--background);
+  color: var(--foreground);
+  font-size: 16px;
+}
+
+.disclaimer {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--foreground);
+  opacity: 0.7;
+  text-align: center;
+}
+
 /* Enable hover only on non-touch devices */
 @media (hover: hover) and (pointer: fine) {
   a.primary:hover {
@@ -158,6 +291,16 @@ a.secondary {
 
   .spotifyButton:hover {
     background-color: #1ed760 !important;
+    transform: scale(1.02);
+  }
+
+  .googleButton:hover {
+    background-color: #f5f5f5;
+    transform: scale(1.02);
+  }
+
+  .credentialsButton:hover {
+    background-color: var(--gray-alpha-100);
     transform: scale(1.02);
   }
 }
@@ -194,6 +337,15 @@ a.secondary {
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
+  }
+
+  .authOptions {
+    max-width: 100%;
+  }
+
+  .modal {
+    width: 95%;
+    padding: 20px;
   }
 }
 
