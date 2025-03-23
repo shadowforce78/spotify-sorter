@@ -1,24 +1,27 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spotify Profile</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="container">
         <div id="profile-container">
             <div class="loading">Loading profile...</div>
         </div>
-        
+
         <div id="playlists-container">
             <h2>Your Top Playlists</h2>
             <div class="loading">Loading playlists...</div>
         </div>
-        
+
         <!-- Ajout d'une section de débogage -->
-        <div id="debug-section" style="margin-top: 50px; background-color: #333; padding: 20px; border-radius: 8px; display: none;">
+        <div id="debug-section"
+            style="margin-top: 50px; background-color: #333; padding: 20px; border-radius: 8px; display: none;">
             <h3>Debug Information</h3>
             <pre id="debug-info" style="white-space: pre-wrap; overflow: auto; max-height: 300px;"></pre>
         </div>
@@ -56,20 +59,20 @@
             })
             .then(data => {
                 if (!data) return; // Si redirection vers login, ne rien faire d'autre
-                
+
                 console.log("Données reçues:", data);
                 showDebug(data); // Afficher les données pour le débogage
-                
+
                 if (!data.profile || !data.playlists) {
                     throw new Error('Incomplete user data received');
                 }
-                
+
                 // Display profile info
                 const profileContainer = document.getElementById('profile-container');
                 const profile = data.profile;
-                const profileImg = profile.images && profile.images.length > 0 ? 
+                const profileImg = profile.images && profile.images.length > 0 ?
                     profile.images[0].url : 'default-avatar.png';
-                
+
                 profileContainer.innerHTML = `
                     <div class="profile">
                         <img src="${profileImg}" alt="Profile" class="profile-img">
@@ -80,21 +83,21 @@
                         </div>
                     </div>
                 `;
-                
+
                 // Display playlists
                 const playlistsContainer = document.getElementById('playlists-container');
                 const playlists = data.playlists.items;
-                
+
                 if (playlists && playlists.length > 0) {
                     let playlistsHTML = '<div class="playlists">';
-                    
+
                     // Display first 10 playlists
                     const topPlaylists = playlists.slice(0, 10);
-                    
+
                     topPlaylists.forEach(playlist => {
-                        const playlistImg = playlist.images && playlist.images.length > 0 ? 
+                        const playlistImg = playlist.images && playlist.images.length > 0 ?
                             playlist.images[0].url : 'default-playlist.png';
-                        
+
                         playlistsHTML += `
                             <div class="playlist-card">
                                 <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img">
@@ -103,13 +106,13 @@
                             </div>
                         `;
                     });
-                    
+
                     playlistsHTML += '</div>';
                     playlistsContainer.innerHTML = `<h2>Your Top Playlists</h2>${playlistsHTML}`;
                 } else {
                     playlistsContainer.innerHTML = '<h2>Your Top Playlists</h2><p>No playlists found</p>';
                 }
-                
+
                 // Cacher la section de débogage après 10 secondes (optionnel)
                 setTimeout(() => {
                     document.getElementById('debug-section').style.display = 'none';
@@ -121,4 +124,5 @@
             });
     </script>
 </body>
+
 </html>

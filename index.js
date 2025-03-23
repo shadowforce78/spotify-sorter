@@ -34,7 +34,7 @@ app.listen(PORT, () => {
 });
 
 // Root route
-app.get('/', function(req, res) {
+app.get('/', function (req, res) {
     res.sendFile(path.join(__dirname, 'public', 'home.html'));
 });
 
@@ -54,25 +54,25 @@ app.get('/login', function (req, res) {
 });
 
 // Améliorer la logique pour userData
-app.get('/profile', function(req, res) {
+app.get('/profile', function (req, res) {
     if (!userData) {
         console.log('No user data available, redirecting to login');
         return res.redirect('/login');
     }
-    
+
     res.sendFile(path.join(__dirname, 'public', 'profile.html'));
 });
 
-app.get('/api/user-data', function(req, res) {
+app.get('/api/user-data', function (req, res) {
     console.log('API user-data requested, userData exists:', !!userData);
-    
+
     if (userData) {
         // S'assurer que tous les éléments nécessaires sont présents
         if (!userData.profile || !userData.playlists) {
             console.error('Incomplete userData object:', userData);
             return res.status(500).json({ error: 'Incomplete user data' });
         }
-        
+
         res.json(userData);
     } else {
         res.status(401).json({ error: 'Not authenticated' });
@@ -129,7 +129,7 @@ app.get('/api/auth/callback/spotify', function (req, res) {
             })
             .then(response => {
                 console.log('User profile received:', !!response.data);
-                
+
                 // Store user profile data
                 userData.profile = response.data;
 
@@ -143,15 +143,15 @@ app.get('/api/auth/callback/spotify', function (req, res) {
             })
             .then(response => {
                 console.log('User playlists received, count:', response.data.items.length);
-                
+
                 // Add playlists to stored user data
                 userData.playlists = response.data;
-                
+
                 // Vérifier que userData est complet avant la redirection
                 if (!userData.profile || !userData.playlists) {
                     throw new Error('Failed to retrieve complete user data');
                 }
-                
+
                 res.redirect('/profile');
             })
             .catch(error => {
@@ -163,7 +163,7 @@ app.get('/api/auth/callback/spotify', function (req, res) {
 });
 
 // Ajouter une route pour se déconnecter
-app.get('/logout', function(req, res) {
+app.get('/logout', function (req, res) {
     userData = null;
     res.redirect('/');
 });
