@@ -1,6 +1,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --spotify-green: #1DB954;
+  --spotify-black: #191414;
 }
 
 @media (prefers-color-scheme: dark) {

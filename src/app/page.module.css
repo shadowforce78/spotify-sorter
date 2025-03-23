@@ -6,6 +6,9 @@
   --button-primary-hover: #383838;
   --button-secondary-hover: #f2f2f2;
 
+  --spotify-green: #1DB954;
+  --spotify-black: #191414;
+
   display: grid;
   grid-template-rows: 20px 1fr 20px;
   align-items: center;
@@ -108,6 +111,34 @@ a.secondary {
   flex-shrink: 0;
 }
 
+.title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.description {
+  font-size: 1.2rem;
+  text-align: center;
+  max-width: 600px;
+  margin-bottom: 2rem;
+}
+
+.logoContainer {
+  margin-bottom: 2rem;
+}
+
+.spotifyLogo {
+  height: auto;
+}
+
+.spotifyButton {
+  background-color: var(--spotify-green) !important;
+  color: white !important;
+  font-weight: 600 !important;
+}
+
 /* Enable hover only on non-touch devices */
 @media (hover: hover) and (pointer: fine) {
   a.primary:hover {
@@ -123,6 +154,11 @@ a.secondary {
   .footer a:hover {
     text-decoration: underline;
     text-underline-offset: 4px;
+  }
+
+  .spotifyButton:hover {
+    background-color: #1ed760 !important;
+    transform: scale(1.02);
   }
 }
 
