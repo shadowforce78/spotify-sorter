@@ -1,0 +1,119 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #121212;
+    color: #fff;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.loading {
+    text-align: center;
+    margin: 50px 0;
+    color: #b3b3b3;
+}
+
+.error {
+    text-align: center;
+    margin: 50px 0;
+    color: #ff5252;
+}
+
+/* Profile section */
+.profile {
+    display: flex;
+    align-items: center;
+    margin-bottom: 40px;
+    background-color: #181818;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.profile-img {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    margin-right: 30px;
+    object-fit: cover;
+}
+
+.profile-info h1 {
+    margin: 0 0 10px 0;
+    font-size: 2.5rem;
+    color: #1DB954;
+}
+
+.profile-info p {
+    margin: 0;
+    color: #b3b3b3;
+}
+
+/* Playlists section */
+#playlists-container h2 {
+    margin-bottom: 20px;
+    color: #1DB954;
+}
+
+.playlists {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.playlist-card {
+    background-color: #181818;
+    border-radius: 8px;
+    padding: 15px;
+    transition: background-color 0.3s ease;
+}
+
+.playlist-card:hover {
+    background-color: #282828;
+}
+
+.playlist-img {
+    width: 100%;
+    aspect-ratio: 1/1;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.playlist-card h3 {
+    margin: 10px 0 5px 0;
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.playlist-card p {
+    margin: 0;
+    color: #b3b3b3;
+    font-size: 0.9rem;
+}
+
+/* Additional styles for the home page - these could go in the home.html file as inline styles too */
+
+/* Button styles that could be reused across the app */
+.button {
+    background-color: #1DB954;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 10px 20px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    text-decoration: none;
+}
+
+.button:hover {
+    background-color: #1ed760;
+}

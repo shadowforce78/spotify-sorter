@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Profile</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div id="profile-container">
+            <div class="loading">Loading profile...</div>
+        </div>
+        
+        <div id="playlists-container">
+            <h2>Your Top Playlists</h2>
+            <div class="loading">Loading playlists...</div>
+        </div>
+        
+        <!-- Ajout d'une section de débogage -->
+        <div id="debug-section" style="margin-top: 50px; background-color: #333; padding: 20px; border-radius: 8px; display: none;">
+            <h3>Debug Information</h3>
+            <pre id="debug-info" style="white-space: pre-wrap; overflow: auto; max-height: 300px;"></pre>
+        </div>
+    </div>
+
+    <script>
+        // Fonction pour afficher les informations de débogage
+        function showDebug(data) {
+            document.getElementById('debug-section').style.display = 'block';
+            document.getElementById('debug-info').textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Fonction pour afficher les erreurs
+        function showError(message) {
+            document.body.innerHTML = `
+                <div class="container">
+                    <div class="error">Error: ${message}</div>
+                    <a href="/login" class="button" style="display: inline-block; margin-top: 20px;">Try again</a>
+                </div>
+            `;
+        }
+
+        // Fetch user data from our API
+        fetch('/api/user-data')
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        // Si non authentifié, rediriger vers la page de login
+                        window.location.href = '/login';
+                        return null;
+                    }
+                    throw new Error(`API responded with status ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (!data) return; // Si redirection vers login, ne rien faire d'autre
+                
+                console.log("Données reçues:", data);
+                showDebug(data); // Afficher les données pour le débogage
+                
+                if (!data.profile || !data.playlists) {
+                    throw new Error('Incomplete user data received');
+                }
+                
+                // Display profile info
+                const profileContainer = document.getElementById('profile-container');
+                const profile = data.profile;
+                const profileImg = profile.images && profile.images.length > 0 ? 
+                    profile.images[0].url : 'default-avatar.png';
+                
+                profileContainer.innerHTML = `
+                    <div class="profile">
+                        <img src="${profileImg}" alt="Profile" class="profile-img">
+                        <div class="profile-info">
+                            <h1>${profile.display_name || 'Spotify User'}</h1>
+                            <p>${profile.followers ? profile.followers.total : 0} followers</p>
+                            <p>${profile.product || ''} account</p>
+                        </div>
+                    </div>
+                `;
+                
+                // Display playlists
+                const playlistsContainer = document.getElementById('playlists-container');
+                const playlists = data.playlists.items;
+                
+                if (playlists && playlists.length > 0) {
+                    let playlistsHTML = '<div class="playlists">';
+                    
+                    // Display first 10 playlists
+                    const topPlaylists = playlists.slice(0, 10);
+                    
+                    topPlaylists.forEach(playlist => {
+                        const playlistImg = playlist.images && playlist.images.length > 0 ? 
+                            playlist.images[0].url : 'default-playlist.png';
+                        
+                        playlistsHTML += `
+                            <div class="playlist-card">
+                                <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img">
+                                <h3>${playlist.name}</h3>
+                                <p>${playlist.tracks.total} tracks</p>
+                            </div>
+                        `;
+                    });
+                    
+                    playlistsHTML += '</div>';
+                    playlistsContainer.innerHTML = `<h2>Your Top Playlists</h2>${playlistsHTML}`;
+                } else {
+                    playlistsContainer.innerHTML = '<h2>Your Top Playlists</h2><p>No playlists found</p>';
+                }
+                
+                // Cacher la section de débogage après 10 secondes (optionnel)
+                setTimeout(() => {
+                    document.getElementById('debug-section').style.display = 'none';
+                }, 10000);
+            })
+            .catch(error => {
+                console.error('Error fetching user data:', error);
+                showError(error.message);
+            });
+    </script>
+</body>
+</html>
