@@ -4,3 +4,4 @@ node_modules
 file.txt
 node_modules/.package-lock.json
 package-lock.json
+.qodo
