@@ -58,9 +58,50 @@
             </div>
         </div>
         
+        <div id="sorting-interface" style="display: none;">
+            <h2>3. Tri des morceaux</h2>
+            
+            <div class="progress-container">
+                <div class="progress-info">
+                    <span id="current-track-number">1</span>/<span id="total-tracks">0</span> morceaux traités
+                </div>
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+            </div>
+            
+            <div id="current-track-container" class="current-track">
+                <div class="track-info">
+                    <img id="track-image" src="default-album.png" alt="Album" class="track-img">
+                    <div class="track-details">
+                        <h3 id="track-title">Titre de la chanson</h3>
+                        <p id="track-artist">Artiste</p>
+                        <p id="track-album">Album</p>
+                    </div>
+                </div>
+                
+                <div class="player-container">
+                    <audio id="audio-player" controls></audio>
+                </div>
+                
+                <div class="sorting-question">
+                    <p>Dans quelle playlist souhaitez-vous ajouter ce morceau ?</p>
+                </div>
+                
+                <div id="target-buttons" class="target-buttons">
+                    <!-- Les boutons de playlist cible seront générés ici -->
+                </div>
+                
+                <div class="navigation-buttons">
+                    <button id="skip-button" class="button secondary">Ignorer ce morceau</button>
+                    <button id="previous-button" class="button secondary" disabled>Précédent</button>
+                </div>
+            </div>
+        </div>
+        
         <div id="sorting-results" style="display: none;">
-            <h2>3. Résultats du tri</h2>
-            <div id="results-container"></div>
+            <h2>4. Résultats du tri</h2>
+            <div id="results-container" class="sorting-summary"></div>
             <button onclick="backToStart()" class="button">Recommencer</button>
         </div>
     </div>
@@ -69,6 +110,13 @@
         let userPlaylists = [];
         let selectedSourcePlaylist = null;
         let selectedTargetPlaylists = [];
+        let playlistTracks = [];
+        let currentTrackIndex = 0;
+        let sortingResults = {
+            totalTracks: 0,
+            processedTracks: 0,
+            targetPlaylists: []
+        };
         
         // Fonction pour afficher un onglet
         function showTab(tabId) {
@@ -100,6 +148,10 @@
                 const playlistUrl = document.getElementById('playlist-url').value;
                 loadExternalPlaylist(playlistUrl);
             });
+            
+            // Configurer les boutons de navigation
+            document.getElementById('skip-button').addEventListener('click', skipTrack);
+            document.getElementById('previous-button').addEventListener('click', previousTrack);
         });
         
         // Fonction pour charger les playlists de l'utilisateur
@@ -279,6 +331,9 @@
             }
             
             let html = '';
+            const loadingPromises = [];
+            
+            // Vérifier pour chaque playlist si elle est modifiable
             availablePlaylists.forEach(playlist => {
                 const playlistImg = playlist.images && playlist.images.length > 0 ?
                     playlist.images[0].url : 'default-playlist.png';
@@ -286,24 +341,113 @@
                 const isSelected = selectedTargetPlaylists.some(p => p.id === playlist.id);
                 const selectedClass = isSelected ? 'selected' : '';
                 
-                html += `
-                    <div class="playlist-card ${selectedClass}" onclick="toggleTargetPlaylist('${playlist.id}')">
-                        <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img">
-                        <h3>${playlist.name}</h3>
-                        <p>${playlist.tracks.total} morceaux</p>
-                        <div class="selection-indicator">${isSelected ? '✓' : ''}</div>
-                    </div>
-                `;
+                // Si la permission a déjà été vérifiée
+                if (playlist.hasOwnProperty('canModify')) {
+                    const disabledClass = !playlist.canModify ? 'disabled' : '';
+                    const ownerInfo = !playlist.canModify ? 
+                        `<div class="owner-info">Propriétaire: ${playlist.owner}</div>` : '';
+                    const modifiableIcon = playlist.canModify ? 
+                        `<div class="modifiable-indicator" title="${playlist.isOwner ? 'Vous êtes propriétaire' : 'Playlist collaborative'}">✓</div>` : 
+                        `<div class="non-modifiable-indicator" title="Vous ne pouvez pas modifier cette playlist">❌</div>`;
+                    
+                    html += `
+                        <div class="playlist-card ${selectedClass} ${disabledClass}" 
+                             onclick="${playlist.canModify ? `toggleTargetPlaylist('${playlist.id}')` : ''}"
+                             ${!playlist.canModify ? 'title="Vous ne pouvez pas modifier cette playlist"' : ''}>
+                            <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img">
+                            <h3>${playlist.name}</h3>
+                            <p>${playlist.tracks.total} morceaux</p>
+                            ${modifiableIcon}
+                            ${ownerInfo}
+                            ${isSelected ? '<div class="selection-indicator">✓</div>' : ''}
+                        </div>
+                    `;
+                } else {
+                    // Si la permission n'a pas encore été vérifiée, on affiche un indicateur de chargement
+                    const playlistCard = `
+                        <div class="playlist-card loading-permission" id="playlist-card-${playlist.id}">
+                            <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img">
+                            <h3>${playlist.name}</h3>
+                            <p>${playlist.tracks.total} morceaux</p>
+                            <div class="permission-loading">⟳</div>
+                        </div>
+                    `;
+                    html += playlistCard;
+                    
+                    // Ajouter la requête de vérification à notre liste
+                    const loadingPromise = fetch(`/api/playlist/${playlist.id}/check-permissions`)
+                        .then(response => response.json())
+                        .then(data => {
+                            // Stocker les informations de permission dans l'objet playlist
+                            playlist.canModify = data.canModify;
+                            playlist.isOwner = data.isOwner;
+                            playlist.isCollaborative = data.isCollaborative;
+                            playlist.owner = data.playlist.owner;
+                            
+                            // Mettre à jour le DOM pour cette playlist
+                            const card = document.getElementById(`playlist-card-${playlist.id}`);
+                            if (card) {
+                                const disabledClass = !data.canModify ? 'disabled' : '';
+                                const ownerInfo = !data.canModify ? 
+                                    `<div class="owner-info">Propriétaire: ${data.playlist.owner}</div>` : '';
+                                const modifiableIcon = data.canModify ? 
+                                    `<div class="modifiable-indicator" title="${data.isOwner ? 'Vous êtes propriétaire' : 'Playlist collaborative'}">✓</div>` : 
+                                    `<div class="non-modifiable-indicator" title="Vous ne pouvez pas modifier cette playlist">❌</div>`;
+                                
+                                const newCard = `
+                                    <div class="playlist-card ${disabledClass}" 
+                                         onclick="${data.canModify ? `toggleTargetPlaylist('${playlist.id}')` : ''}"
+                                         ${!data.canModify ? 'title="Vous ne pouvez pas modifier cette playlist"' : ''}>
+                                        <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img">
+                                        <h3>${playlist.name}</h3>
+                                        <p>${playlist.tracks.total} morceaux</p>
+                                        ${modifiableIcon}
+                                        ${ownerInfo}
+                                    </div>
+                                `;
+                                
+                                card.outerHTML = newCard;
+                            }
+                        })
+                        .catch(error => {
+                            console.error(`Error checking permissions for playlist ${playlist.id}:`, error);
+                            // En cas d'erreur, on considère que la playlist n'est pas modifiable
+                            playlist.canModify = false;
+                            
+                            const card = document.getElementById(`playlist-card-${playlist.id}`);
+                            if (card) {
+                                card.classList.add('disabled');
+                                card.innerHTML += '<div class="non-modifiable-indicator" title="Erreur lors de la vérification des permissions">❌</div>';
+                            }
+                        });
+                    
+                    loadingPromises.push(loadingPromise);
+                }
             });
             
             container.innerHTML = html;
-            updateStartButton();
+            
+            // Si toutes les permissions sont déjà vérifiées, pas besoin d'attendre
+            if (loadingPromises.length === 0) {
+                updateStartButton();
+            } else {
+                // Sinon, attendre que toutes les requêtes de vérification soient terminées
+                Promise.all(loadingPromises).then(() => {
+                    updateStartButton();
+                });
+            }
         }
-        
+
         // Fonction pour sélectionner/désélectionner une playlist cible
         function toggleTargetPlaylist(playlistId) {
             const playlist = userPlaylists.find(p => p.id === playlistId);
             if (!playlist) return;
+            
+            // Vérifier si la playlist est modifiable
+            if (playlist.hasOwnProperty('canModify') && !playlist.canModify) {
+                alert('Vous ne pouvez pas utiliser cette playlist comme cible car vous n\'en êtes pas le propriétaire et elle n\'est pas collaborative.');
+                return;
+            }
             
             const index = selectedTargetPlaylists.findIndex(p => p.id === playlistId);
             
@@ -413,23 +557,183 @@
                 return;
             }
             
-            // Afficher un indicateur de chargement
-            document.getElementById('target-selection').innerHTML = 
-                '<div class="loading">Tri des morceaux en cours...</div>';
+            // Cacher les sections précédentes
+            document.getElementById('target-selection').style.display = 'none';
+            document.getElementById('playlist-selection').style.display = 'none';
             
-            // Préparer les données pour l'API
-            const sortData = {
-                sourcePlaylistId: selectedSourcePlaylist.id,
-                targetPlaylistIds: selectedTargetPlaylists.map(p => p.id)
+            // Afficher l'interface de tri et indiquer le chargement
+            const sortingInterface = document.getElementById('sorting-interface');
+            sortingInterface.style.display = 'block';
+            
+            // Ajouter un overlay de chargement plutôt que de remplacer tout le contenu
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.id = 'loading-overlay';
+            loadingOverlay.className = 'loading-overlay';
+            loadingOverlay.innerHTML = '<div class="loading">Chargement des morceaux de la playlist source...</div>';
+            sortingInterface.appendChild(loadingOverlay);
+            
+            // Initialiser les résultats du tri
+            sortingResults = {
+                totalTracks: 0,
+                processedTracks: 0,
+                targetPlaylists: selectedTargetPlaylists.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    addedTracks: 0
+                }))
             };
             
-            // Envoyer les données à l'API pour le tri
-            fetch('/api/sort-playlist', {
+            // Charger les pistes de la playlist source
+            fetch(`/api/playlist/${selectedSourcePlaylist.id}/tracks`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`API responded with status ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data || !data.items || data.items.length === 0) {
+                        throw new Error('No tracks found in the source playlist');
+                    }
+                    
+                    // Stocker les pistes
+                    playlistTracks = data.items.map(item => item.track).filter(track => track !== null);
+                    sortingResults.totalTracks = playlistTracks.length;
+                    currentTrackIndex = 0;
+                    
+                    // Retirer l'overlay de chargement
+                    const loadingOverlay = document.getElementById('loading-overlay');
+                    if (loadingOverlay) {
+                        loadingOverlay.remove();
+                    }
+                    
+                    // Mettre à jour l'interface de tri
+                    updateSortingInterface();
+                })
+                .catch(error => {
+                    console.error('Error loading playlist tracks:', error);
+                    const loadingOverlay = document.getElementById('loading-overlay');
+                    if (loadingOverlay) {
+                        loadingOverlay.innerHTML = 
+                            `<p class="error">Erreur lors du chargement des morceaux: ${error.message}</p>
+                             <button onclick="backToStart()" class="button">Retour</button>`;
+                    }
+                });
+        }
+        
+        // Fonction pour mettre à jour l'interface de tri
+        function updateSortingInterface() {
+            // Vérifier si nous avons atteint la fin de la liste des pistes
+            if (currentTrackIndex >= playlistTracks.length) {
+                // Tous les morceaux ont été traités
+                showResults();
+                return;
+            }
+            
+            const track = playlistTracks[currentTrackIndex];
+            
+            // Vérifier que les éléments DOM existent avant de les mettre à jour
+            const currentTrackNumberEl = document.getElementById('current-track-number');
+            const totalTracksEl = document.getElementById('total-tracks');
+            const progressFillEl = document.getElementById('progress-fill');
+            const trackTitleEl = document.getElementById('track-title');
+            const trackArtistEl = document.getElementById('track-artist');
+            const trackAlbumEl = document.getElementById('track-album');
+            const trackImageEl = document.getElementById('track-image');
+            const audioPlayerEl = document.getElementById('audio-player');
+            const targetButtonsEl = document.getElementById('target-buttons');
+            const previousButtonEl = document.getElementById('previous-button');
+            
+            // Vérifier que tous les éléments existent
+            if (!currentTrackNumberEl || !totalTracksEl || !progressFillEl || !trackTitleEl || 
+                !trackArtistEl || !trackAlbumEl || !trackImageEl || !audioPlayerEl || 
+                !targetButtonsEl || !previousButtonEl) {
+                console.error('Certains éléments DOM requis sont manquants');
+                return;
+            }
+            
+            // Mettre à jour les informations de progression
+            currentTrackNumberEl.textContent = currentTrackIndex + 1;
+            totalTracksEl.textContent = playlistTracks.length;
+            
+            // Mettre à jour la barre de progression
+            const progressPercentage = ((currentTrackIndex) / playlistTracks.length) * 100;
+            progressFillEl.style.width = `${progressPercentage}%`;
+            
+            // Mettre à jour les informations de la piste
+            trackTitleEl.textContent = track.name;
+            trackArtistEl.textContent = track.artists.map(artist => artist.name).join(', ');
+            trackAlbumEl.textContent = track.album.name;
+            
+            // Mettre à jour l'image de l'album
+            const albumImg = track.album.images && track.album.images.length > 0 ?
+                track.album.images[0].url : 'default-album.png';
+            trackImageEl.src = albumImg;
+            
+            // Mettre à jour le lecteur audio
+            const playerContainer = document.querySelector('.player-container');
+            // Nettoyer les messages d'erreur précédents
+            const errorMessages = playerContainer.querySelectorAll('.error');
+            errorMessages.forEach(el => el.remove());
+            
+            if (track.preview_url) {
+                audioPlayerEl.src = track.preview_url;
+                audioPlayerEl.disabled = false;
+                try {
+                    audioPlayerEl.play().catch(e => {
+                        console.warn('Autoplay prevented by browser', e);
+                    });
+                } catch (e) {
+                    console.warn('Error playing audio', e);
+                }
+            } else {
+                audioPlayerEl.src = '';
+                audioPlayerEl.disabled = true;
+                playerContainer.insertAdjacentHTML('beforeend', 
+                    '<p class="error">Aperçu audio non disponible pour ce morceau.</p>');
+            }
+            
+            // Mettre à jour les boutons de playlist cible
+            let buttonsHtml = '';
+            
+            selectedTargetPlaylists.forEach(playlist => {
+                const playlistImg = playlist.images && playlist.images.length > 0 ?
+                    playlist.images[0].url : 'default-playlist.png';
+                
+                buttonsHtml += `
+                    <button class="target-button" onclick="addTrackToPlaylist('${playlist.id}')">
+                        <img src="${playlistImg}" alt="${playlist.name}" class="playlist-icon">
+                        <span>${playlist.name}</span>
+                    </button>
+                `;
+            });
+            
+            targetButtonsEl.innerHTML = buttonsHtml;
+            
+            // Mettre à jour l'état du bouton précédent
+            previousButtonEl.disabled = currentTrackIndex === 0;
+        }
+        
+        // Fonction pour ajouter une piste à une playlist cible
+        function addTrackToPlaylist(playlistId) {
+            if (currentTrackIndex >= playlistTracks.length) return;
+            
+            const track = playlistTracks[currentTrackIndex];
+            const trackUri = `spotify:track:${track.id}`;
+            
+            // Afficher un indicateur de chargement
+            const targetButtonsEl = document.getElementById('target-buttons');
+            if (targetButtonsEl) {
+                targetButtonsEl.innerHTML = '<div class="loading">Ajout du morceau à la playlist...</div>';
+            }
+            
+            // Envoyer la requête à l'API
+            fetch(`/api/playlist/${playlistId}/add-track`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(sortData)
+                body: JSON.stringify({ trackUri })
             })
             .then(response => {
                 if (!response.ok) {
@@ -437,30 +741,59 @@
                 }
                 return response.json();
             })
-            .then(results => {
-                showSortingResults(results);
+            .then(data => {
+                // Mettre à jour les résultats
+                const targetPlaylist = sortingResults.targetPlaylists.find(p => p.id === playlistId);
+                if (targetPlaylist) {
+                    targetPlaylist.addedTracks++;
+                }
+                
+                sortingResults.processedTracks++;
+                
+                // Passer au morceau suivant
+                currentTrackIndex++;
+                updateSortingInterface();
             })
             .catch(error => {
-                console.error('Error during playlist sorting:', error);
-                document.getElementById('target-selection').innerHTML = 
-                    `<p class="error">Erreur lors du tri: ${error.message}</p>
-                     <button onclick="resetTargetSelection()" class="button">Réessayer</button>`;
+                console.error('Error adding track to playlist:', error);
+                if (targetButtonsEl) {
+                    targetButtonsEl.innerHTML = 
+                        `<p class="error">Erreur lors de l'ajout du morceau: ${error.message}</p>
+                         <button onclick="updateSortingInterface()" class="button">Réessayer</button>`;
+                }
             });
         }
         
+        // Fonction pour ignorer une piste
+        function skipTrack() {
+            if (currentTrackIndex >= playlistTracks.length) return;
+            
+            sortingResults.processedTracks++;
+            currentTrackIndex++;
+            updateSortingInterface();
+        }
+        
+        // Fonction pour revenir à la piste précédente
+        function previousTrack() {
+            if (currentTrackIndex <= 0) return;
+            
+            currentTrackIndex--;
+            sortingResults.processedTracks--;
+            updateSortingInterface();
+        }
+        
         // Fonction pour afficher les résultats du tri
-        function showSortingResults(results) {
-            document.getElementById('playlist-selection').style.display = 'none';
-            document.getElementById('target-selection').style.display = 'none';
+        function showResults() {
+            document.getElementById('sorting-interface').style.display = 'none';
             
             const resultsContainer = document.getElementById('results-container');
             let html = '<div class="sorting-summary">';
             
             html += `<p>Le tri a été effectué avec succès !</p>`;
-            html += `<p>${results.totalTracks} morceaux de la playlist "${selectedSourcePlaylist.name}" ont été répartis dans ${results.targetPlaylists.length} playlists.</p>`;
+            html += `<p>${sortingResults.processedTracks} morceaux sur ${sortingResults.totalTracks} de la playlist "${selectedSourcePlaylist.name}" ont été traités.</p>`;
             
             html += '<h3>Détails par playlist:</h3><ul>';
-            results.targetPlaylists.forEach(playlist => {
+            sortingResults.targetPlaylists.forEach(playlist => {
                 html += `<li><strong>${playlist.name}</strong>: ${playlist.addedTracks} morceaux ajoutés</li>`;
             });
             html += '</ul></div>';
@@ -473,11 +806,14 @@
         function backToStart() {
             selectedSourcePlaylist = null;
             selectedTargetPlaylists = [];
+            playlistTracks = [];
+            currentTrackIndex = 0;
             
             document.getElementById('playlist-selection').style.display = 'block';
             document.getElementById('selected-source').style.display = 'none';
             document.querySelector('.source-selection').style.display = 'block';
             document.getElementById('target-selection').style.display = 'none';
+            document.getElementById('sorting-interface').style.display = 'none';
             document.getElementById('sorting-results').style.display = 'none';
             
             // Réinitialiser l'onglet de playlist externe

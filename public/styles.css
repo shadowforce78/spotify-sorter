@@ -283,3 +283,221 @@ body {
 .sorting-summary li {
     margin-bottom: 5px;
 }
+
+/* Styles pour l'interface de tri interactif */
+.progress-container {
+    margin: 20px 0;
+}
+
+.progress-info {
+    text-align: center;
+    margin-bottom: 10px;
+    color: #b3b3b3;
+}
+
+.progress-bar {
+    height: 8px;
+    background-color: #282828;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #1DB954;
+    width: 0;
+    transition: width 0.3s ease;
+}
+
+.current-track {
+    background-color: #282828;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.track-info {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.track-img {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 8px;
+    margin-right: 20px;
+}
+
+.track-details h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.5rem;
+}
+
+.track-details p {
+    margin: 5px 0;
+    color: #b3b3b3;
+}
+
+.player-container {
+    margin: 20px 0;
+}
+
+audio {
+    width: 100%;
+    background-color: #181818;
+    border-radius: 30px;
+}
+
+.sorting-question {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.target-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.target-button {
+    display: flex;
+    align-items: center;
+    background-color: #333;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    color: #fff;
+    text-align: left;
+}
+
+.target-button:hover {
+    background-color: #444;
+}
+
+.playlist-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    margin-right: 10px;
+}
+
+.navigation-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 30px;
+}
+
+/* Loading overlay */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    border-radius: 8px;
+}
+
+#sorting-interface {
+    position: relative;
+}
+
+/* Styles pour les indicateurs de permission */
+.modifiable-indicator,
+.non-modifiable-indicator {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    z-index: 5;
+}
+
+.modifiable-indicator {
+    background-color: #1DB954;
+    color: white;
+}
+
+.non-modifiable-indicator {
+    background-color: #ff5252;
+    color: white;
+}
+
+.owner-info {
+    font-size: 0.8rem;
+    color: #b3b3b3;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+.playlist-card.disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    position: relative;
+}
+
+.playlist-card.disabled:after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+
+.permission-loading {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #666;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Small screens adjustments */
+@media (max-width: 768px) {
+    .track-info {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .track-img {
+        margin-right: 0;
+        margin-bottom: 20px;
+    }
+    
+    .track-details {
+        text-align: center;
+    }
+    
+    .target-buttons {
+        grid-template-columns: 1fr;
+    }
+}

@@ -41,7 +41,7 @@ app.get('/', function (req, res) {
 app.get('/login', function (req, res) {
 
     var state = generateRandomString(16);
-    var scope = 'user-read-private user-read-email playlist-read-private playlist-read-collaborative';
+    var scope = 'user-read-private user-read-email playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private';
 
     res.redirect('https://accounts.spotify.com/authorize?' +
         querystring.stringify({
@@ -175,4 +175,190 @@ app.get('/playlist-sorter', function (req, res) {
 app.get('/logout', function (req, res) {
     userData = null;
     res.redirect('/');
+});
+
+// Route pour récupérer les informations d'une playlist externe
+app.get('/api/playlist/:id', function (req, res) {
+    if (!userData || !userData.tokens) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const playlistId = req.params.id;
+    const access_token = userData.tokens.access_token;
+
+    axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+        headers: {
+            'Authorization': 'Bearer ' + access_token
+        }
+    })
+    .then(response => {
+        res.json(response.data);
+    })
+    .catch(error => {
+        console.error('Error fetching playlist:', error.response ? error.response.data : error.message);
+        res.status(error.response ? error.response.status : 500).json({ 
+            error: error.response ? error.response.data : error.message 
+        });
+    });
+});
+
+// Route pour récupérer les pistes d'une playlist
+app.get('/api/playlist/:id/tracks', function (req, res) {
+    if (!userData || !userData.tokens) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const playlistId = req.params.id;
+    const access_token = userData.tokens.access_token;
+    
+    // Paramètres pour limiter le nombre de champs retournés et réduire la taille de la réponse
+    const fields = 'items(track(id,name,artists,album,duration_ms,preview_url)),total';
+    const limit = 100; // Maximum autorisé par l'API Spotify
+
+    axios.get(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?fields=${fields}&limit=${limit}`, {
+        headers: {
+            'Authorization': 'Bearer ' + access_token
+        }
+    })
+    .then(response => {
+        res.json(response.data);
+    })
+    .catch(error => {
+        console.error('Error fetching playlist tracks:', error.response ? error.response.data : error.message);
+        res.status(error.response ? error.response.status : 500).json({ 
+            error: error.response ? error.response.data : error.message 
+        });
+    });
+});
+
+// Route pour vérifier si une playlist est modifiable par l'utilisateur
+app.get('/api/playlist/:id/check-permissions', function (req, res) {
+    if (!userData || !userData.tokens || !userData.profile) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const playlistId = req.params.id;
+    const access_token = userData.tokens.access_token;
+    const userId = userData.profile.id;
+
+    // Récupérer les informations de la playlist pour vérifier son propriétaire et son statut collaboratif
+    axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+        headers: {
+            'Authorization': 'Bearer ' + access_token
+        }
+    })
+    .then(response => {
+        const playlist = response.data;
+        // Vérifier si l'utilisateur est propriétaire ou si la playlist est collaborative
+        const isOwner = playlist.owner.id === userId;
+        const isCollaborative = playlist.collaborative === true;
+        const canModify = isOwner || isCollaborative;
+
+        res.json({ 
+            canModify, 
+            isOwner,
+            isCollaborative,
+            playlist: {
+                id: playlist.id,
+                name: playlist.name,
+                owner: playlist.owner.display_name,
+                ownerId: playlist.owner.id
+            }
+        });
+    })
+    .catch(error => {
+        console.error('Error checking playlist permissions:', error.response ? error.response.data : error.message);
+        res.status(error.response ? error.response.status : 500).json({ 
+            error: error.response ? error.response.data : error.message 
+        });
+    });
+});
+
+// Route pour ajouter une piste à une playlist
+app.post('/api/playlist/:id/add-track', express.json(), function (req, res) {
+    if (!userData || !userData.tokens || !userData.profile) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const playlistId = req.params.id;
+    const { trackUri } = req.body;
+    
+    if (!trackUri) {
+        return res.status(400).json({ error: 'Track URI is required' });
+    }
+
+    const access_token = userData.tokens.access_token;
+    const userId = userData.profile.id;
+
+    // Vérifier d'abord les permissions
+    axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+        headers: {
+            'Authorization': 'Bearer ' + access_token
+        }
+    })
+    .then(response => {
+        const playlist = response.data;
+        const isOwner = playlist.owner.id === userId;
+        const isCollaborative = playlist.collaborative === true;
+        
+        if (!isOwner && !isCollaborative) {
+            throw new Error('You do not have permission to modify this playlist');
+        }
+        
+        // Si les permissions sont OK, ajouter la piste
+        return axios.post(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+            uris: [trackUri]
+        }, {
+            headers: {
+                'Authorization': 'Bearer ' + access_token,
+                'Content-Type': 'application/json'
+            }
+        });
+    })
+    .then(response => {
+        res.json({ success: true, data: response.data });
+    })
+    .catch(error => {
+        if (error.message === 'You do not have permission to modify this playlist') {
+            return res.status(403).json({ error: error.message });
+        }
+        console.error('Error adding track to playlist:', error.response ? error.response.data : error.message);
+        res.status(error.response ? error.response.status : 500).json({ 
+            error: error.response ? error.response.data : error.message 
+        });
+    });
+});
+
+// Route pour ajouter une piste à une playlist
+app.post('/api/playlist/:id/add-track', express.json(), function (req, res) {
+    if (!userData || !userData.tokens) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const playlistId = req.params.id;
+    const { trackUri } = req.body;
+    
+    if (!trackUri) {
+        return res.status(400).json({ error: 'Track URI is required' });
+    }
+
+    const access_token = userData.tokens.access_token;
+
+    axios.post(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+        uris: [trackUri]
+    }, {
+        headers: {
+            'Authorization': 'Bearer ' + access_token,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        res.json({ success: true, data: response.data });
+    })
+    .catch(error => {
+        console.error('Error adding track to playlist:', error.response ? error.response.data : error.message);
+        res.status(error.response ? error.response.status : 500).json({ 
+            error: error.response ? error.response.data : error.message 
+        });
+    });
 });
