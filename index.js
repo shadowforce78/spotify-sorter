@@ -14,7 +14,7 @@ function generateRandomString(length) {
 
     return text;
 }
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 63247;
 
 var client_id = process.env.SPOTIFY_CLIENT_ID;
 var client_secret = process.env.SPOTIFY_CLIENT_SECRET;
