@@ -89,6 +89,41 @@
             background-color: rgba(29, 185, 84, 0.1);
             transform: scale(1.05);
         }
+        
+        /* Style for iOS install instructions */
+        .ios-install-banner {
+            background-color: rgba(29, 185, 84, 0.1);
+            border: 1px solid #1DB954;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            display: none; /* Hidden by default */
+            max-width: 600px;
+            text-align: left;
+        }
+        
+        .ios-install-banner h3 {
+            color: #1DB954;
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+        
+        .ios-install-banner ol {
+            padding-left: 20px;
+            margin: 10px 0;
+            color: #b3b3b3;
+        }
+        
+        .ios-install-banner ol li {
+            margin-bottom: 5px;
+        }
+        
+        .ios-install-icon {
+            vertical-align: middle;
+            margin-right: 5px;
+            width: 18px;
+            height: 18px;
+        }
     </style>
     </head>
     <body>
@@ -107,8 +142,20 @@
             </p>
             <a href="/login" class="login-button">Se connecter avec Spotify</a>
             
-            <!-- Add the install button -->
+            <!-- Add the install button (for non-iOS) -->
             <button id="installButton" class="install-button">Installer l'application</button>
+            
+            <!-- Add iOS installation instructions -->
+            <div id="iosInstallBanner" class="ios-install-banner">
+                <h3>Installer sur votre appareil iOS</h3>
+                <p>Pour installer cette application sur votre écran d'accueil :</p>
+                <ol>
+                    <li>Appuyez sur <svg class="ios-install-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#1DB954"><path d="M12 16a2 2 0 0 1 2 2 2 2 0 0 1-2 2 2 2 0 0 1-2-2c0-1.1.9-2 2-2zm10-9h-4V5a2 2 0 0 0-2-2H8c-1.11 0-2 .89-2 2v2H2a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h20a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM8 5h8v2H8V5zm12 16H4V9h16v12z"/></svg> (Partager)</li>
+                    <li>Faites défiler et appuyez sur <strong>"Sur l'écran d'accueil"</strong></li>
+                    <li>Appuyez sur <strong>"Ajouter"</strong> en haut à droite</li>
+                </ol>
+                <p>L'application sera alors disponible sur votre écran d'accueil comme une application native!</p>
+            </div>
         </div>
 
         <script>
@@ -125,45 +172,64 @@
             });
         }
         
-        // PWA Installation
-        let deferredPrompt;
-        const installButton = document.getElementById('installButton');
+        // Détection iOS
+        function isIOS() {
+            return [
+                'iPad Simulator',
+                'iPhone Simulator',
+                'iPod Simulator',
+                'iPad',
+                'iPhone',
+                'iPod'
+            ].includes(navigator.platform)
+            // iPad on iOS 13 detection
+            || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+        }
         
-        // Capture the beforeinstallprompt event
-        window.addEventListener('beforeinstallprompt', (e) => {
-            // Prevent the default prompt from showing
-            e.preventDefault();
-            // Save the event to use it later
-            deferredPrompt = e;
-            // Show the install button
-            installButton.style.display = 'block';
-        });
-        
-        // Add click event to the install button
-        installButton.addEventListener('click', async () => {
-            // If there's no deferred prompt, return
-            if (!deferredPrompt) return;
+        // Afficher les instructions pour iOS ou le bouton d'installation pour les autres
+        if (isIOS()) {
+            document.getElementById('iosInstallBanner').style.display = 'block';
+        } else {
+            // PWA Installation pour les autres navigateurs
+            let deferredPrompt;
+            const installButton = document.getElementById('installButton');
             
-            // Show the installation prompt
-            deferredPrompt.prompt();
+            // Capture the beforeinstallprompt event
+            window.addEventListener('beforeinstallprompt', (e) => {
+                // Prevent the default prompt from showing
+                e.preventDefault();
+                // Save the event to use it later
+                deferredPrompt = e;
+                // Show the install button
+                installButton.style.display = 'block';
+            });
             
-            // Wait for the user's choice
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`User response to install prompt: ${outcome}`);
+            // Add click event to the install button
+            installButton.addEventListener('click', async () => {
+                // If there's no deferred prompt, return
+                if (!deferredPrompt) return;
+                
+                // Show the installation prompt
+                deferredPrompt.prompt();
+                
+                // Wait for the user's choice
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response to install prompt: ${outcome}`);
+                
+                // Clear the deferred prompt
+                deferredPrompt = null;
+                
+                // Hide the install button
+                installButton.style.display = 'none';
+            });
             
-            // Clear the deferred prompt
-            deferredPrompt = null;
-            
-            // Hide the install button
-            installButton.style.display = 'none';
-        });
-        
-        // Hide the button if the app is already installed
-        window.addEventListener('appinstalled', () => {
-            console.log('Application installée avec succès!');
-            installButton.style.display = 'none';
-            deferredPrompt = null;
-        });
+            // Hide the button if the app is already installed
+            window.addEventListener('appinstalled', () => {
+                console.log('Application installée avec succès!');
+                installButton.style.display = 'none';
+                deferredPrompt = null;
+            });
+        }
     </script>
     </body>
 </html>
