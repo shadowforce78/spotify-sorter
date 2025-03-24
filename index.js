@@ -162,6 +162,15 @@ app.get('/api/auth/callback/spotify', function (req, res) {
     }
 });
 
+app.get('/playlist-sorter', function (req, res) {
+    if (!userData) {
+        console.log('No user data available, redirecting to login');
+        return res.redirect('/login');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'playlist-sorter.html'));
+
+});
+
 // Ajouter une route pour se déconnecter
 app.get('/logout', function (req, res) {
     userData = null;

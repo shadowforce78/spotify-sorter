@@ -113,6 +113,13 @@
                     playlistsContainer.innerHTML = '<h2>Your Top Playlists</h2><p>No playlists found</p>';
                 }
 
+                // Ajouter un bouton pour accéder à la fonctionnalité de tri des playlists
+                const actionDiv = document.createElement('div');
+                actionDiv.style.textAlign = 'center';
+                actionDiv.style.marginTop = '30px';
+                actionDiv.innerHTML = '<a href="/playlist-sorter" class="button">Trier mes playlists</a>';
+                document.querySelector('.container').appendChild(actionDiv);
+
                 // Cacher la section de débogage après 10 secondes (optionnel)
                 /*setTimeout(() => {
                     document.getElementById('debug-section').style.display = 'none';

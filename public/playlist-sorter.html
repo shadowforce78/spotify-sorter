@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Playlist Sorter</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Trieur de Playlists Spotify</h1>
+        
+        <div id="playlist-selection">
+            <h2>1. Choisissez une playlist source</h2>
+            
+            <div class="source-selection">
+                <div class="tab-container">
+                    <button class="tab-button active" onclick="showTab('user-playlists-tab')">Mes playlists</button>
+                    <button class="tab-button" onclick="showTab('external-playlist-tab')">Playlist externe</button>
+                </div>
+                
+                <div id="user-playlists-tab" class="tab-content active">
+                    <div class="loading">Chargement de vos playlists...</div>
+                    <div id="user-playlists-container" class="playlists-grid"></div>
+                </div>
+                
+                <div id="external-playlist-tab" class="tab-content">
+                    <form id="external-playlist-form">
+                        <label for="playlist-url">URL de la playlist Spotify:</label>
+                        <input type="text" id="playlist-url" placeholder="https://open.spotify.com/playlist/..." required>
+                        <button type="submit" class="button">Utiliser cette playlist</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div id="selected-source" style="display: none;">
+                <h3>Playlist source sélectionnée:</h3>
+                <div id="source-playlist-info" class="selected-playlist-info"></div>
+                <button onclick="resetSourceSelection()" class="button secondary">Changer</button>
+            </div>
+        </div>
+        
+        <div id="target-selection" style="display: none;">
+            <h2>2. Sélectionnez les playlists cibles</h2>
+            <p>Choisissez les playlists dans lesquelles vous souhaitez répartir les morceaux:</p>
+            
+            <div class="loading">Chargement de vos playlists...</div>
+            <div id="target-playlists-container" class="playlists-grid"></div>
+            
+            <div id="selected-targets" style="display: none;">
+                <h3>Playlists cibles sélectionnées:</h3>
+                <div id="target-playlists-info" class="selected-playlists-info"></div>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="start-sorting-button" class="button" disabled>Commencer le tri</button>
+                <button onclick="resetTargetSelection()" class="button secondary">Réinitialiser la sélection</button>
+            </div>
+        </div>
+        
+        <div id="sorting-results" style="display: none;">
+            <h2>3. Résultats du tri</h2>
+            <div id="results-container"></div>
+            <button onclick="backToStart()" class="button">Recommencer</button>
+        </div>
+    </div>
+
+    <script>
+        let userPlaylists = [];
+        let selectedSourcePlaylist = null;
+        let selectedTargetPlaylists = [];
+        
+        // Fonction pour afficher un onglet
+        function showTab(tabId) {
+            // Cacher tous les contenus d'onglets
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Désactiver tous les boutons d'onglets
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Afficher l'onglet sélectionné
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activer le bouton d'onglet correspondant
+            event.target.classList.add('active');
+        }
+        
+        // Au chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Charger les playlists de l'utilisateur
+            loadUserPlaylists();
+            
+            // Gérer le formulaire de playlist externe
+            document.getElementById('external-playlist-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const playlistUrl = document.getElementById('playlist-url').value;
+                loadExternalPlaylist(playlistUrl);
+            });
+        });
+        
+        // Fonction pour charger les playlists de l'utilisateur
+        function loadUserPlaylists() {
+            fetch('/api/user-data')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`API responded with status ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data || !data.playlists || !data.playlists.items) {
+                        throw new Error('No playlist data available');
+                    }
+                    
+                    userPlaylists = data.playlists.items;
+                    renderUserPlaylists();
+                })
+                .catch(error => {
+                    console.error('Error loading user playlists:', error);
+                    document.querySelector('#user-playlists-tab .loading').innerHTML = 
+                        `Erreur lors du chargement des playlists: ${error.message}`;
+                });
+        }
+        
+        // Fonction pour afficher les playlists de l'utilisateur
+        function renderUserPlaylists() {
+            const container = document.getElementById('user-playlists-container');
+            document.querySelector('#user-playlists-tab .loading').style.display = 'none';
+            
+            if (userPlaylists.length === 0) {
+                container.innerHTML = '<p>Aucune playlist trouvée.</p>';
+                return;
+            }
+            
+            let html = '';
+            userPlaylists.forEach(playlist => {
+                const playlistImg = playlist.images && playlist.images.length > 0 ?
+                    playlist.images[0].url : 'default-playlist.png';
+                
+                html += `
+                    <div class="playlist-card" onclick="selectSourcePlaylist('${playlist.id}')">
+                        <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img">
+                        <h3>${playlist.name}</h3>
+                        <p>${playlist.tracks.total} morceaux</p>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // Fonction pour sélectionner une playlist source
+        function selectSourcePlaylist(playlistId) {
+            const playlist = userPlaylists.find(p => p.id === playlistId);
+            if (!playlist) return;
+            
+            selectedSourcePlaylist = playlist;
+            
+            // Afficher les informations de la playlist sélectionnée
+            const playlistImg = playlist.images && playlist.images.length > 0 ?
+                playlist.images[0].url : 'default-playlist.png';
+            
+            document.getElementById('source-playlist-info').innerHTML = `
+                <div class="selected-playlist">
+                    <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img">
+                    <div class="playlist-details">
+                        <h4>${playlist.name}</h4>
+                        <p>${playlist.tracks.total} morceaux</p>
+                    </div>
+                </div>
+            `;
+            
+            // Cacher la sélection et afficher la playlist choisie
+            document.querySelector('.source-selection').style.display = 'none';
+            document.getElementById('selected-source').style.display = 'block';
+            
+            // Passer à l'étape suivante
+            document.getElementById('target-selection').style.display = 'block';
+            
+            // Charger les playlists cibles (exclure la source)
+            loadTargetPlaylists();
+        }
+        
+        // Fonction pour charger une playlist externe
+        function loadExternalPlaylist(url) {
+            // Extraire l'ID de la playlist à partir de l'URL
+            const playlistId = extractPlaylistId(url);
+            if (!playlistId) {
+                alert('URL de playlist non valide. Veuillez vérifier le format.');
+                return;
+            }
+            
+            // Afficher un indicateur de chargement
+            document.getElementById('external-playlist-tab').innerHTML = 
+                '<div class="loading">Chargement de la playlist...</div>';
+            
+            // Faire une requête à l'API pour obtenir les informations de la playlist
+            fetch(`/api/playlist/${playlistId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`API responded with status ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(playlist => {
+                    selectedSourcePlaylist = playlist;
+                    
+                    // Afficher les informations de la playlist
+                    const playlistImg = playlist.images && playlist.images.length > 0 ?
+                        playlist.images[0].url : 'default-playlist.png';
+                    
+                    document.getElementById('source-playlist-info').innerHTML = `
+                        <div class="selected-playlist">
+                            <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img">
+                            <div class="playlist-details">
+                                <h4>${playlist.name}</h4>
+                                <p>${playlist.tracks.total} morceaux</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Cacher la sélection et afficher la playlist choisie
+                    document.querySelector('.source-selection').style.display = 'none';
+                    document.getElementById('selected-source').style.display = 'block';
+                    
+                    // Passer à l'étape suivante
+                    document.getElementById('target-selection').style.display = 'block';
+                    
+                    // Charger les playlists cibles
+                    loadTargetPlaylists();
+                })
+                .catch(error => {
+                    console.error('Error loading external playlist:', error);
+                    document.getElementById('external-playlist-tab').innerHTML = 
+                        `<p class="error">Erreur: ${error.message}</p>
+                         <button onclick="showTab('external-playlist-tab')" class="button">Réessayer</button>`;
+                });
+        }
+        
+        // Fonction pour extraire l'ID de la playlist à partir d'une URL
+        function extractPlaylistId(url) {
+            // Format attendu: https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO
+            const regex = /playlist\/([a-zA-Z0-9]+)/;
+            const match = url.match(regex);
+            return match ? match[1] : null;
+        }
+        
+        // Fonction pour charger les playlists cibles
+        function loadTargetPlaylists() {
+            const container = document.getElementById('target-playlists-container');
+            const loadingEl = document.querySelector('#target-selection .loading');
+            
+            if (userPlaylists.length === 0) {
+                loadUserPlaylists().then(() => {
+                    renderTargetPlaylists();
+                });
+            } else {
+                loadingEl.style.display = 'none';
+                renderTargetPlaylists();
+            }
+        }
+        
+        // Fonction pour afficher les playlists cibles
+        function renderTargetPlaylists() {
+            const container = document.getElementById('target-playlists-container');
+            document.querySelector('#target-selection .loading').style.display = 'none';
+            
+            // Filtrer pour ne pas inclure la playlist source
+            const availablePlaylists = userPlaylists.filter(p => 
+                !selectedSourcePlaylist || p.id !== selectedSourcePlaylist.id);
+            
+            if (availablePlaylists.length === 0) {
+                container.innerHTML = '<p>Aucune autre playlist disponible.</p>';
+                return;
+            }
+            
+            let html = '';
+            availablePlaylists.forEach(playlist => {
+                const playlistImg = playlist.images && playlist.images.length > 0 ?
+                    playlist.images[0].url : 'default-playlist.png';
+                
+                const isSelected = selectedTargetPlaylists.some(p => p.id === playlist.id);
+                const selectedClass = isSelected ? 'selected' : '';
+                
+                html += `
+                    <div class="playlist-card ${selectedClass}" onclick="toggleTargetPlaylist('${playlist.id}')">
+                        <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img">
+                        <h3>${playlist.name}</h3>
+                        <p>${playlist.tracks.total} morceaux</p>
+                        <div class="selection-indicator">${isSelected ? '✓' : ''}</div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            updateStartButton();
+        }
+        
+        // Fonction pour sélectionner/désélectionner une playlist cible
+        function toggleTargetPlaylist(playlistId) {
+            const playlist = userPlaylists.find(p => p.id === playlistId);
+            if (!playlist) return;
+            
+            const index = selectedTargetPlaylists.findIndex(p => p.id === playlistId);
+            
+            if (index === -1) {
+                // Ajouter à la sélection
+                selectedTargetPlaylists.push(playlist);
+            } else {
+                // Retirer de la sélection
+                selectedTargetPlaylists.splice(index, 1);
+            }
+            
+            // Mettre à jour l'affichage
+            renderTargetPlaylists();
+            updateSelectedTargets();
+        }
+        
+        // Mettre à jour l'affichage des playlists cibles sélectionnées
+        function updateSelectedTargets() {
+            const container = document.getElementById('target-playlists-info');
+            const selectedTargetsEl = document.getElementById('selected-targets');
+            
+            if (selectedTargetPlaylists.length === 0) {
+                selectedTargetsEl.style.display = 'none';
+                return;
+            }
+            
+            selectedTargetsEl.style.display = 'block';
+            
+            let html = '';
+            selectedTargetPlaylists.forEach(playlist => {
+                const playlistImg = playlist.images && playlist.images.length > 0 ?
+                    playlist.images[0].url : 'default-playlist.png';
+                
+                html += `
+                    <div class="selected-playlist">
+                        <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img-small">
+                        <div class="playlist-details">
+                            <h4>${playlist.name}</h4>
+                            <p>${playlist.tracks.total} morceaux</p>
+                        </div>
+                        <button onclick="removeTargetPlaylist('${playlist.id}')" class="remove-button">×</button>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            updateStartButton();
+        }
+        
+        // Fonction pour retirer une playlist cible de la sélection
+        function removeTargetPlaylist(playlistId) {
+            const index = selectedTargetPlaylists.findIndex(p => p.id === playlistId);
+            if (index !== -1) {
+                selectedTargetPlaylists.splice(index, 1);
+                renderTargetPlaylists();
+                updateSelectedTargets();
+            }
+        }
+        
+        // Mettre à jour l'état du bouton de démarrage
+        function updateStartButton() {
+            const button = document.getElementById('start-sorting-button');
+            button.disabled = selectedTargetPlaylists.length === 0;
+            
+            if (selectedTargetPlaylists.length > 0) {
+                button.onclick = startSorting;
+            } else {
+                button.onclick = null;
+            }
+        }
+        
+        // Fonction pour réinitialiser la sélection de la source
+        function resetSourceSelection() {
+            selectedSourcePlaylist = null;
+            document.querySelector('.source-selection').style.display = 'block';
+            document.getElementById('selected-source').style.display = 'none';
+            document.getElementById('target-selection').style.display = 'none';
+            
+            // Réinitialiser l'onglet de playlist externe
+            document.getElementById('external-playlist-tab').innerHTML = `
+                <form id="external-playlist-form">
+                    <label for="playlist-url">URL de la playlist Spotify:</label>
+                    <input type="text" id="playlist-url" placeholder="https://open.spotify.com/playlist/..." required>
+                    <button type="submit" class="button">Utiliser cette playlist</button>
+                </form>
+            `;
+            
+            // Réattacher l'event listener
+            document.getElementById('external-playlist-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const playlistUrl = document.getElementById('playlist-url').value;
+                loadExternalPlaylist(playlistUrl);
+            });
+        }
+        
+        // Fonction pour réinitialiser la sélection des cibles
+        function resetTargetSelection() {
+            selectedTargetPlaylists = [];
+            renderTargetPlaylists();
+            updateSelectedTargets();
+        }
+        
+        // Fonction pour démarrer le tri
+        function startSorting() {
+            if (!selectedSourcePlaylist || selectedTargetPlaylists.length === 0) {
+                alert('Veuillez sélectionner une playlist source et au moins une playlist cible.');
+                return;
+            }
+            
+            // Afficher un indicateur de chargement
+            document.getElementById('target-selection').innerHTML = 
+                '<div class="loading">Tri des morceaux en cours...</div>';
+            
+            // Préparer les données pour l'API
+            const sortData = {
+                sourcePlaylistId: selectedSourcePlaylist.id,
+                targetPlaylistIds: selectedTargetPlaylists.map(p => p.id)
+            };
+            
+            // Envoyer les données à l'API pour le tri
+            fetch('/api/sort-playlist', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(sortData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`API responded with status ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(results => {
+                showSortingResults(results);
+            })
+            .catch(error => {
+                console.error('Error during playlist sorting:', error);
+                document.getElementById('target-selection').innerHTML = 
+                    `<p class="error">Erreur lors du tri: ${error.message}</p>
+                     <button onclick="resetTargetSelection()" class="button">Réessayer</button>`;
+            });
+        }
+        
+        // Fonction pour afficher les résultats du tri
+        function showSortingResults(results) {
+            document.getElementById('playlist-selection').style.display = 'none';
+            document.getElementById('target-selection').style.display = 'none';
+            
+            const resultsContainer = document.getElementById('results-container');
+            let html = '<div class="sorting-summary">';
+            
+            html += `<p>Le tri a été effectué avec succès !</p>`;
+            html += `<p>${results.totalTracks} morceaux de la playlist "${selectedSourcePlaylist.name}" ont été répartis dans ${results.targetPlaylists.length} playlists.</p>`;
+            
+            html += '<h3>Détails par playlist:</h3><ul>';
+            results.targetPlaylists.forEach(playlist => {
+                html += `<li><strong>${playlist.name}</strong>: ${playlist.addedTracks} morceaux ajoutés</li>`;
+            });
+            html += '</ul></div>';
+            
+            resultsContainer.innerHTML = html;
+            document.getElementById('sorting-results').style.display = 'block';
+        }
+        
+        // Fonction pour revenir au début
+        function backToStart() {
+            selectedSourcePlaylist = null;
+            selectedTargetPlaylists = [];
+            
+            document.getElementById('playlist-selection').style.display = 'block';
+            document.getElementById('selected-source').style.display = 'none';
+            document.querySelector('.source-selection').style.display = 'block';
+            document.getElementById('target-selection').style.display = 'none';
+            document.getElementById('sorting-results').style.display = 'none';
+            
+            // Réinitialiser l'onglet de playlist externe
+            resetSourceSelection();
+        }
+    </script>
+</body>
+</html>

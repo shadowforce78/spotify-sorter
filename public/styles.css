@@ -117,3 +117,169 @@ body {
 .button:hover {
     background-color: #1ed760;
 }
+
+/* Styles pour la page de tri des playlists */
+.tab-container {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #333;
+}
+
+.tab-button {
+    background-color: transparent;
+    border: none;
+    color: #b3b3b3;
+    padding: 10px 20px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.tab-button:hover {
+    color: #fff;
+}
+
+.tab-button.active {
+    color: #1DB954;
+    border-bottom: 2px solid #1DB954;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+#external-playlist-form {
+    margin: 20px 0;
+}
+
+#external-playlist-form label {
+    display: block;
+    margin-bottom: 8px;
+    color: #b3b3b3;
+}
+
+#external-playlist-form input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 16px;
+    background-color: #282828;
+    border: 1px solid #333;
+    border-radius: 4px;
+    color: #fff;
+}
+
+.playlists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.playlist-card {
+    position: relative;
+    cursor: pointer;
+}
+
+.playlist-card.selected {
+    outline: 2px solid #1DB954;
+    background-color: rgba(29, 185, 84, 0.1);
+}
+
+.selection-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: #1DB954;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.selected-playlist {
+    display: flex;
+    align-items: center;
+    background-color: #282828;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.playlist-img-small {
+    width: 60px;
+    height: 60px;
+    border-radius: 4px;
+    margin-right: 15px;
+}
+
+.playlist-details {
+    flex-grow: 1;
+}
+
+.playlist-details h4 {
+    margin: 0 0 5px 0;
+}
+
+.playlist-details p {
+    margin: 0;
+    color: #b3b3b3;
+    font-size: 0.9rem;
+}
+
+.remove-button {
+    background-color: transparent;
+    color: #b3b3b3;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.remove-button:hover {
+    color: #ff5252;
+}
+
+.action-buttons {
+    margin-top: 30px;
+    display: flex;
+    gap: 10px;
+}
+
+.button.secondary {
+    background-color: transparent;
+    border: 1px solid #1DB954;
+    color: #1DB954;
+}
+
+.button.secondary:hover {
+    background-color: rgba(29, 185, 84, 0.1);
+}
+
+.button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}
+
+.sorting-summary {
+    background-color: #282828;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.sorting-summary ul {
+    margin-top: 10px;
+    padding-left: 20px;
+}
+
+.sorting-summary li {
+    margin-bottom: 5px;
+}
