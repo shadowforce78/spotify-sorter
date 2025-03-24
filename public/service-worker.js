@@ -4,8 +4,8 @@ const urlsToCache = [
   '/',
   '/styles.css',
   '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/icons/icon_192x192.png',
+  '/icons/icon_512x512.png'
 ];
 
 // Installation du Service Worker

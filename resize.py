@@ -15,7 +15,7 @@ def resize_image(input_path, output_folder, sizes=[72, 96, 128, 144, 152, 192, 3
         
         # Redimensionner et sauvegarder les images
         for size in sizes:
-            resized_img = img.resize((size, size), Image.ANTIALIAS)
+            resized_img = img.resize((size, size), Image.Resampling.LANCZOS)
             output_path = os.path.join(output_folder, f"{base_name}_{size}x{size}.png")
             resized_img.save(output_path, "PNG")
             print(f"✅ Image enregistrée : {output_path}")
