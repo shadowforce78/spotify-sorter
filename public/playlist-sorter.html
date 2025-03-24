@@ -153,6 +153,62 @@
         // Variables pour l'historique
         let addHistory = [];
         
+        // Vérifier l'authentification au chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!checkAuth()) {
+                window.location.href = '/login';
+                return;
+            }
+            
+            // Charger les playlists de l'utilisateur
+            loadUserPlaylists();
+            
+            // Gérer le formulaire de playlist externe
+            document.getElementById('external-playlist-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const playlistUrl = document.getElementById('playlist-url').value;
+                loadExternalPlaylist(playlistUrl);
+            });
+            
+            // Configurer les boutons de navigation
+            document.getElementById('skip-button').addEventListener('click', skipTrack);
+            document.getElementById('previous-button').addEventListener('click', previousTrack);
+            document.getElementById('next-track-button').addEventListener('click', nextTrack);
+        });
+        
+        // Fonction pour vérifier si les tokens sont valides
+        function checkAuth() {
+            const accessToken = localStorage.getItem('spotify_access_token');
+            const expirationTime = localStorage.getItem('spotify_token_expiration');
+            
+            if (!accessToken || !expirationTime) {
+                return false;
+            }
+            
+            // Vérifier si le token a expiré
+            if (Date.now() > parseInt(expirationTime)) {
+                // Token expiré, nettoyer le localStorage et rediriger vers login
+                localStorage.removeItem('spotify_access_token');
+                localStorage.removeItem('spotify_refresh_token');
+                localStorage.removeItem('spotify_token_expiration');
+                localStorage.removeItem('spotify_user_profile');
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Fonction pour obtenir l'access token du localStorage
+        function getAccessToken() {
+            return localStorage.getItem('spotify_access_token');
+        }
+        
+        // Fonction pour obtenir l'ID utilisateur du localStorage
+        function getUserId() {
+            const profile = JSON.parse(localStorage.getItem('spotify_user_profile'));
+            return profile ? profile.id : null;
+        }
+        
         // Fonction pour afficher un onglet
         function showTab(tabId) {
             // Cacher tous les contenus d'onglets
@@ -172,36 +228,37 @@
             event.target.classList.add('active');
         }
         
-        // Au chargement de la page
-        document.addEventListener('DOMContentLoaded', function() {
-            // Charger les playlists de l'utilisateur
-            loadUserPlaylists();
-            
-            // Gérer le formulaire de playlist externe
-            document.getElementById('external-playlist-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const playlistUrl = document.getElementById('playlist-url').value;
-                loadExternalPlaylist(playlistUrl);
-            });
-            
-            // Configurer les boutons de navigation
-            document.getElementById('skip-button').addEventListener('click', skipTrack);
-            document.getElementById('previous-button').addEventListener('click', previousTrack);
-            document.getElementById('next-track-button').addEventListener('click', nextTrack);
-        });
-        
         // Fonction pour charger les playlists de l'utilisateur
         function loadUserPlaylists() {
-            fetch('/api/user-data')
+            const accessToken = getAccessToken();
+            
+            fetch('/api/user-data', {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
                 .then(response => {
                     if (!response.ok) {
+                        if (response.status === 401) {
+                            // Si token expiré, rediriger vers login
+                            localStorage.clear();
+                            window.location.href = '/login';
+                            return null;
+                        }
                         throw new Error(`API responded with status ${response.status}`);
                     }
                     return response.json();
                 })
                 .then(data => {
-                    if (!data || !data.playlists || !data.playlists.items) {
+                    if (!data) return;
+                    
+                    if (!data.playlists || !data.playlists.items) {
                         throw new Error('No playlist data available');
+                    }
+                    
+                    // Mettre à jour le profil dans le localStorage
+                    if (data.profile) {
+                        localStorage.setItem('spotify_user_profile', JSON.stringify(data.profile));
                     }
                     
                     userPlaylists = data.playlists.items;
@@ -286,8 +343,14 @@
             document.getElementById('external-playlist-tab').innerHTML = 
                 '<div class="loading">Chargement de la playlist...</div>';
             
+            const accessToken = getAccessToken();
+            
             // Faire une requête à l'API pour obtenir les informations de la playlist
-            fetch(`/api/playlist/${playlistId}`)
+            fetch(`/api/playlist/${playlistId}`, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`API responded with status ${response.status}`);
@@ -623,8 +686,14 @@
             addHistory = [];
             updateHistory();
             
+            const accessToken = getAccessToken();
+            
             // Charger les pistes de la playlist source
-            fetch(`/api/playlist/${selectedSourcePlaylist.id}/tracks`)
+            fetch(`/api/playlist/${selectedSourcePlaylist.id}/tracks`, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`API responded with status ${response.status}`);
@@ -808,13 +877,17 @@
                 targetButton.innerHTML = '<div class="button-loading">Ajout en cours...</div>';
             }
             
+            const accessToken = getAccessToken();
+            const userId = getUserId();
+            
             // Envoyer la requête à l'API
             fetch(`/api/playlist/${playlistId}/add-track`, {
                 method: 'POST',
                 headers: {
+                    'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ trackUri })
+                body: JSON.stringify({ trackUri, userId })
             })
             .then(response => {
                 if (!response.ok) {
@@ -1022,14 +1095,19 @@
                 historyItems[historyIndex].innerHTML = '<div class="loading">Suppression en cours...</div>';
             }
             
+            const accessToken = getAccessToken();
+            const userId = getUserId();
+            
             // Envoyer la requête à l'API
             fetch(`/api/playlist/${playlist.id}/remove-track`, {
                 method: 'POST',
                 headers: {
+                    'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ 
-                    trackUri: `spotify:track:${track.id}`
+                    trackUri: `spotify:track:${track.id}`,
+                    userId: userId
                 })
             })
             .then(response => {
@@ -1071,6 +1149,15 @@
                 updateHistory();
                 alert(`Erreur lors de la suppression: ${error.message}`);
             });
+        }
+        
+        // Fonction de déconnexion
+        function logout() {
+            localStorage.removeItem('spotify_access_token');
+            localStorage.removeItem('spotify_refresh_token');
+            localStorage.removeItem('spotify_token_expiration');
+            localStorage.removeItem('spotify_user_profile');
+            window.location.href = '/';
         }
         
         // Enregistrement du Service Worker pour PWA
