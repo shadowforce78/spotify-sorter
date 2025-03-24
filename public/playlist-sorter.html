@@ -474,21 +474,33 @@
                     html += playlistCard;
                     
                     // Ajouter la requête de vérification à notre liste
-                    const loadingPromise = fetch(`/api/playlist/${playlist.id}/check-permissions`)
-                        .then(response => response.json())
+                    const accessToken = getAccessToken();
+                    const userId = getUserId();
+                    
+                    const loadingPromise = fetch(`/api/playlist/${playlist.id}/check-permissions?userId=${userId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`API responded with status ${response.status}`);
+                            }
+                            return response.json();
+                        })
                         .then(data => {
                             // Stocker les informations de permission dans l'objet playlist
                             playlist.canModify = data.canModify;
                             playlist.isOwner = data.isOwner;
                             playlist.isCollaborative = data.isCollaborative;
-                            playlist.owner = data.playlist.owner;
+                            playlist.owner = data.playlist && data.playlist.owner ? data.playlist.owner : 'Inconnu';
                             
                             // Mettre à jour le DOM pour cette playlist
                             const card = document.getElementById(`playlist-card-${playlist.id}`);
                             if (card) {
                                 const disabledClass = !data.canModify ? 'disabled' : '';
                                 const ownerInfo = !data.canModify ? 
-                                    `<div class="owner-info">Propriétaire: ${data.playlist.owner}</div>` : '';
+                                    `<div class="owner-info">Propriétaire: ${data.playlist && data.playlist.owner ? data.playlist.owner : 'Inconnu'}</div>` : '';
                                 const modifiableIcon = data.canModify ? 
                                     `<div class="modifiable-indicator" title="${data.isOwner ? 'Vous êtes propriétaire' : 'Playlist collaborative'}">✓</div>` : 
                                     `<div class="non-modifiable-indicator" title="Vous ne pouvez pas modifier cette playlist">❌</div>`;
@@ -512,11 +524,18 @@
                             console.error(`Error checking permissions for playlist ${playlist.id}:`, error);
                             // En cas d'erreur, on considère que la playlist n'est pas modifiable
                             playlist.canModify = false;
+                            playlist.owner = 'Inconnu (erreur)';
                             
                             const card = document.getElementById(`playlist-card-${playlist.id}`);
                             if (card) {
                                 card.classList.add('disabled');
-                                card.innerHTML += '<div class="non-modifiable-indicator" title="Erreur lors de la vérification des permissions">❌</div>';
+                                card.innerHTML = `
+                                    <img src="${playlistImg}" alt="${playlist.name}" class="playlist-img">
+                                    <h3>${playlist.name}</h3>
+                                    <p>${playlist.tracks.total} morceaux</p>
+                                    <div class="non-modifiable-indicator" title="Erreur lors de la vérification des permissions">❌</div>
+                                    <div class="owner-info">Erreur: Impossible de vérifier les permissions</div>
+                                `;
                             }
                         });
                     

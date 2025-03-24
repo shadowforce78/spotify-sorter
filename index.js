@@ -18,8 +18,8 @@ const PORT = process.env.PORT || 63247;
 
 var client_id = process.env.SPOTIFY_CLIENT_ID;
 var client_secret = process.env.SPOTIFY_CLIENT_SECRET;
-// var redirect_uri = 'http://localhost:3000/api/auth/callback/spotify';
-var redirect_uri = 'https://sortify.saumondeluxe.com/api/auth/callback/spotify';
+var redirect_uri = 'http://localhost:63247/api/auth/callback/spotify';
+// var redirect_uri = 'https://sortify.saumondeluxe.com/api/auth/callback/spotify';
 
 var app = express();
 
@@ -31,6 +31,9 @@ const getAuthToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
         req.token = authHeader.substring(7);
+        console.log("Token extrait avec succès");
+    } else {
+        console.log("Aucun token trouvé dans l'en-tête:", authHeader);
     }
     next();
 };
@@ -192,6 +195,7 @@ app.get('/api/playlist/:id/tracks', function (req, res) {
 // Route pour vérifier si une playlist est modifiable par l'utilisateur
 app.get('/api/playlist/:id/check-permissions', function (req, res) {
     if (!req.token) {
+        console.log("Token manquant dans la requête pour la vérification des permissions de la playlist", req.params.id);
         return res.status(401).json({ error: 'Not authenticated' });
     }
 
@@ -199,19 +203,34 @@ app.get('/api/playlist/:id/check-permissions', function (req, res) {
     const userId = req.query.userId; // Obtenir l'ID utilisateur depuis la requête
 
     if (!userId) {
+        console.log("ID utilisateur manquant dans la requête de vérification des permissions");
         return res.status(400).json({ error: 'User ID is required' });
     }
+
+    console.log(`Vérification des permissions pour la playlist ${playlistId} et l'utilisateur ${userId}`);
 
     // Récupérer les informations de la playlist pour vérifier son propriétaire et son statut collaboratif
     axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
         headers: { 'Authorization': `Bearer ${req.token}` }
     })
         .then(response => {
+            if (!response.data) {
+                throw new Error('No playlist data returned from Spotify API');
+            }
+            
             const playlist = response.data;
+            
+            // Vérifier que nous avons bien les infos du propriétaire
+            if (!playlist.owner || !playlist.owner.id) {
+                throw new Error('Owner information missing from playlist data');
+            }
+            
             // Vérifier si l'utilisateur est propriétaire ou si la playlist est collaborative
             const isOwner = playlist.owner.id === userId;
             const isCollaborative = playlist.collaborative === true;
             const canModify = isOwner || isCollaborative;
+
+            console.log(`Résultat de vérification: isOwner=${isOwner}, isCollaborative=${isCollaborative}, canModify=${canModify}`);
 
             res.json({
                 canModify,
@@ -226,9 +245,12 @@ app.get('/api/playlist/:id/check-permissions', function (req, res) {
             });
         })
         .catch(error => {
-            console.error('Error checking playlist permissions:', error.response ? error.response.data : error.message);
+            console.error('Error checking playlist permissions:', error.message);
+            if (error.response) {
+                console.error('Spotify API response:', error.response.status, error.response.data);
+            }
             res.status(error.response ? error.response.status : 500).json({
-                error: error.response ? error.response.data : error.message
+                error: error.message
             });
         });
 });
