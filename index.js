@@ -18,8 +18,8 @@ const PORT = process.env.PORT || 63247;
 
 var client_id = process.env.SPOTIFY_CLIENT_ID;
 var client_secret = process.env.SPOTIFY_CLIENT_SECRET;
-var redirect_uri = 'http://localhost:3000/api/auth/callback/spotify';
-// var redirect_uri = 'https://31c9-82-67-27-121.ngrok-free.app/api/auth/callback/spotify';
+// var redirect_uri = 'http://localhost:3000/api/auth/callback/spotify';
+var redirect_uri = 'https://sortify.saumondeluxe.com/api/auth/callback/spotify';
 
 var app = express();
 
