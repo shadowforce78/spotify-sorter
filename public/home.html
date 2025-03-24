@@ -69,6 +69,26 @@
             background-color: #1ed760;
             transform: scale(1.05);
         }
+        
+        /* Style for the install button */
+        .install-button {
+            background-color: transparent;
+            border: 2px solid #1DB954;
+            color: #1DB954;
+            border-radius: 30px;
+            padding: 12px 30px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+            display: none; /* Hidden by default */
+        }
+
+        .install-button:hover {
+            background-color: rgba(29, 185, 84, 0.1);
+            transform: scale(1.05);
+        }
     </style>
     </head>
     <body>
@@ -86,6 +106,9 @@
                 de vos playlists.
             </p>
             <a href="/login" class="login-button">Se connecter avec Spotify</a>
+            
+            <!-- Add the install button -->
+            <button id="installButton" class="install-button">Installer l'application</button>
         </div>
 
         <script>
@@ -101,6 +124,46 @@
                     });
             });
         }
+        
+        // PWA Installation
+        let deferredPrompt;
+        const installButton = document.getElementById('installButton');
+        
+        // Capture the beforeinstallprompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the default prompt from showing
+            e.preventDefault();
+            // Save the event to use it later
+            deferredPrompt = e;
+            // Show the install button
+            installButton.style.display = 'block';
+        });
+        
+        // Add click event to the install button
+        installButton.addEventListener('click', async () => {
+            // If there's no deferred prompt, return
+            if (!deferredPrompt) return;
+            
+            // Show the installation prompt
+            deferredPrompt.prompt();
+            
+            // Wait for the user's choice
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to install prompt: ${outcome}`);
+            
+            // Clear the deferred prompt
+            deferredPrompt = null;
+            
+            // Hide the install button
+            installButton.style.display = 'none';
+        });
+        
+        // Hide the button if the app is already installed
+        window.addEventListener('appinstalled', () => {
+            console.log('Application installée avec succès!');
+            installButton.style.display = 'none';
+            deferredPrompt = null;
+        });
     </script>
     </body>
 </html>
