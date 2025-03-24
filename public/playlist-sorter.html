@@ -70,6 +70,23 @@
                 </div>
             </div>
             
+            <div class="history-toggle">
+                <button id="show-history-button" class="button secondary" onclick="toggleHistory()">
+                    <span id="history-button-text">Afficher l'historique</span>
+                    <span id="history-count" class="history-count">0</span>
+                </button>
+            </div>
+            
+            <div id="history-panel" class="history-panel" style="display: none;">
+                <h3>Historique des ajouts</h3>
+                <div class="history-container">
+                    <div id="history-items" class="history-items">
+                        <!-- Les éléments d'historique seront ajoutés ici -->
+                        <div class="history-empty">Aucun historique pour le moment</div>
+                    </div>
+                </div>
+            </div>
+            
             <div id="current-track-container" class="current-track">
                 <div class="track-info">
                     <img id="track-image" src="default-album.png" alt="Album" class="track-img">
@@ -85,7 +102,8 @@
                 </div>
                 
                 <div class="sorting-question">
-                    <p>Dans quelle playlist souhaitez-vous ajouter ce morceau ?</p>
+                    <p>Dans quelle(s) playlist(s) souhaitez-vous ajouter ce morceau ?</p>
+                    <p class="playlist-selection-info">Vous pouvez sélectionner plusieurs playlists avant de passer à la chanson suivante.</p>
                 </div>
                 
                 <div id="target-buttons" class="target-buttons">
@@ -95,6 +113,7 @@
                 <div class="navigation-buttons">
                     <button id="skip-button" class="button secondary">Ignorer ce morceau</button>
                     <button id="previous-button" class="button secondary" disabled>Précédent</button>
+                    <button id="next-track-button" class="button primary">Morceau suivant</button>
                 </div>
             </div>
         </div>
@@ -117,6 +136,12 @@
             processedTracks: 0,
             targetPlaylists: []
         };
+        
+        // Variables pour le suivi des playlists auxquelles le morceau actuel a été ajouté
+        let currentTrackAddedTo = [];
+        
+        // Variables pour l'historique
+        let addHistory = [];
         
         // Fonction pour afficher un onglet
         function showTab(tabId) {
@@ -152,6 +177,7 @@
             // Configurer les boutons de navigation
             document.getElementById('skip-button').addEventListener('click', skipTrack);
             document.getElementById('previous-button').addEventListener('click', previousTrack);
+            document.getElementById('next-track-button').addEventListener('click', nextTrack);
         });
         
         // Fonction pour charger les playlists de l'utilisateur
@@ -583,6 +609,10 @@
                 }))
             };
             
+            // Réinitialiser l'historique
+            addHistory = [];
+            updateHistory();
+            
             // Charger les pistes de la playlist source
             fetch(`/api/playlist/${selectedSourcePlaylist.id}/tracks`)
                 .then(response => {
@@ -630,6 +660,9 @@
                 return;
             }
             
+            // Réinitialiser la liste des playlists auxquelles le morceau actuel a été ajouté
+            currentTrackAddedTo = [];
+            
             const track = playlistTracks[currentTrackIndex];
             
             // Vérifier que les éléments DOM existent avant de les mettre à jour
@@ -643,11 +676,12 @@
             const audioPlayerEl = document.getElementById('audio-player');
             const targetButtonsEl = document.getElementById('target-buttons');
             const previousButtonEl = document.getElementById('previous-button');
+            const nextTrackButtonEl = document.getElementById('next-track-button');
             
             // Vérifier que tous les éléments existent
             if (!currentTrackNumberEl || !totalTracksEl || !progressFillEl || !trackTitleEl || 
                 !trackArtistEl || !trackAlbumEl || !trackImageEl || !audioPlayerEl || 
-                !targetButtonsEl || !previousButtonEl) {
+                !targetButtonsEl || !previousButtonEl || !nextTrackButtonEl) {
                 console.error('Certains éléments DOM requis sont manquants');
                 return;
             }
@@ -694,37 +728,74 @@
             }
             
             // Mettre à jour les boutons de playlist cible
+            updateTargetButtons();
+            
+            // Mettre à jour l'état du bouton précédent
+            previousButtonEl.disabled = currentTrackIndex === 0;
+            
+            // Activer le bouton suivant
+            nextTrackButtonEl.disabled = false;
+        }
+        
+        // Fonction pour mettre à jour les boutons de playlist cible
+        function updateTargetButtons() {
+            const targetButtonsEl = document.getElementById('target-buttons');
+            if (!targetButtonsEl) return;
+            
             let buttonsHtml = '';
             
             selectedTargetPlaylists.forEach(playlist => {
                 const playlistImg = playlist.images && playlist.images.length > 0 ?
                     playlist.images[0].url : 'default-playlist.png';
                 
+                // Vérifier si le morceau a déjà été ajouté à cette playlist
+                const isAlreadyAdded = currentTrackAddedTo.includes(playlist.id);
+                const addedClass = isAlreadyAdded ? 'added' : '';
+                const addedText = isAlreadyAdded ? '<span class="added-text">✓ Ajouté</span>' : '';
+                
                 buttonsHtml += `
-                    <button class="target-button" onclick="addTrackToPlaylist('${playlist.id}')">
+                    <button class="target-button ${addedClass}" onclick="addTrackToPlaylist('${playlist.id}')">
                         <img src="${playlistImg}" alt="${playlist.name}" class="playlist-icon">
-                        <span>${playlist.name}</span>
+                        <div class="playlist-button-text">
+                            <span>${playlist.name}</span>
+                            ${addedText}
+                        </div>
                     </button>
                 `;
             });
             
             targetButtonsEl.innerHTML = buttonsHtml;
-            
-            // Mettre à jour l'état du bouton précédent
-            previousButtonEl.disabled = currentTrackIndex === 0;
         }
         
         // Fonction pour ajouter une piste à une playlist cible
         function addTrackToPlaylist(playlistId) {
             if (currentTrackIndex >= playlistTracks.length) return;
             
+            // Si le morceau a déjà été ajouté à cette playlist, ne rien faire
+            if (currentTrackAddedTo.includes(playlistId)) {
+                return;
+            }
+            
             const track = playlistTracks[currentTrackIndex];
             const trackUri = `spotify:track:${track.id}`;
             
-            // Afficher un indicateur de chargement
-            const targetButtonsEl = document.getElementById('target-buttons');
-            if (targetButtonsEl) {
-                targetButtonsEl.innerHTML = '<div class="loading">Ajout du morceau à la playlist...</div>';
+            // Trouver la playlist dans la liste des playlists cibles
+            const playlist = selectedTargetPlaylists.find(p => p.id === playlistId);
+            if (!playlist) return;
+            
+            // Trouver le bouton de la playlist et le marquer comme en cours de chargement
+            const targetButtons = document.querySelectorAll('.target-button');
+            let targetButton = null;
+            
+            targetButtons.forEach(button => {
+                if (button.getAttribute('onclick') === `addTrackToPlaylist('${playlistId}')`) {
+                    targetButton = button;
+                }
+            });
+            
+            if (targetButton) {
+                targetButton.classList.add('loading');
+                targetButton.innerHTML = '<div class="button-loading">Ajout en cours...</div>';
             }
             
             // Envoyer la requête à l'API
@@ -742,26 +813,48 @@
                 return response.json();
             })
             .then(data => {
+                // Ajouter cette playlist à la liste des playlists auxquelles le morceau a été ajouté
+                currentTrackAddedTo.push(playlistId);
+                
                 // Mettre à jour les résultats
                 const targetPlaylist = sortingResults.targetPlaylists.find(p => p.id === playlistId);
                 if (targetPlaylist) {
                     targetPlaylist.addedTracks++;
                 }
                 
-                sortingResults.processedTracks++;
+                // Ajouter à l'historique
+                addToHistory(track, playlist);
                 
-                // Passer au morceau suivant
-                currentTrackIndex++;
-                updateSortingInterface();
+                // Mettre à jour les boutons
+                updateTargetButtons();
             })
             .catch(error => {
                 console.error('Error adding track to playlist:', error);
-                if (targetButtonsEl) {
-                    targetButtonsEl.innerHTML = 
-                        `<p class="error">Erreur lors de l'ajout du morceau: ${error.message}</p>
-                         <button onclick="updateSortingInterface()" class="button">Réessayer</button>`;
+                
+                // Restaurer le bouton en cas d'erreur
+                if (targetButton) {
+                    targetButton.classList.remove('loading');
+                    targetButton.innerHTML = `
+                        <img src="${targetButton.querySelector('img').src}" alt="${targetButton.querySelector('img').alt}" class="playlist-icon">
+                        <div class="playlist-button-text">
+                            <span>${targetButton.querySelector('img').alt}</span>
+                            <span class="error-text">Erreur: ${error.message}</span>
+                        </div>
+                    `;
                 }
             });
+        }
+        
+        // Fonction pour passer au morceau suivant après avoir ajouté à des playlists
+        function nextTrack() {
+            // Si le morceau actuel a été ajouté à au moins une playlist, compter comme traité
+            if (currentTrackAddedTo.length > 0) {
+                sortingResults.processedTracks++;
+            }
+            
+            // Passer au morceau suivant
+            currentTrackIndex++;
+            updateSortingInterface();
         }
         
         // Fonction pour ignorer une piste
@@ -777,8 +870,12 @@
         function previousTrack() {
             if (currentTrackIndex <= 0) return;
             
+            // Si le morceau actuel a été traité, décrémenter le compteur
+            if (currentTrackAddedTo.length > 0) {
+                sortingResults.processedTracks--;
+            }
+            
             currentTrackIndex--;
-            sortingResults.processedTracks--;
             updateSortingInterface();
         }
         
@@ -818,6 +915,152 @@
             
             // Réinitialiser l'onglet de playlist externe
             resetSourceSelection();
+            
+            // Réinitialiser l'historique
+            addHistory = [];
+        }
+        
+        // Fonction pour afficher/masquer l'historique
+        function toggleHistory() {
+            const historyPanel = document.getElementById('history-panel');
+            const historyButtonText = document.getElementById('history-button-text');
+            
+            if (historyPanel.style.display === 'none') {
+                historyPanel.style.display = 'block';
+                historyButtonText.textContent = 'Masquer l\'historique';
+            } else {
+                historyPanel.style.display = 'none';
+                historyButtonText.textContent = 'Afficher l\'historique';
+            }
+        }
+        
+        // Fonction pour mettre à jour l'historique
+        function updateHistory() {
+            const historyItems = document.getElementById('history-items');
+            const historyCount = document.getElementById('history-count');
+            
+            if (!historyItems) return;
+            
+            // Mettre à jour le compteur
+            historyCount.textContent = addHistory.length;
+            
+            if (addHistory.length === 0) {
+                historyItems.innerHTML = '<div class="history-empty">Aucun historique pour le moment</div>';
+                return;
+            }
+            
+            let html = '';
+            
+            // Trier l'historique par date récente en premier
+            const sortedHistory = [...addHistory].sort((a, b) => b.timestamp - a.timestamp);
+            
+            sortedHistory.forEach((item, index) => {
+                const trackName = item.track.name;
+                const artistName = item.track.artists.map(a => a.name).join(', ');
+                const playlistName = item.playlist.name;
+                const playlistImg = item.playlist.images && item.playlist.images.length > 0 ?
+                    item.playlist.images[0].url : 'default-playlist.png';
+                const trackImg = item.track.album.images && item.track.album.images.length > 0 ?
+                    item.track.album.images[0].url : 'default-album.png';
+                
+                html += `
+                    <div class="history-item">
+                        <div class="history-track-info">
+                            <img src="${trackImg}" alt="${trackName}" class="history-track-img">
+                            <div class="history-track-details">
+                                <h4>${trackName}</h4>
+                                <p>${artistName}</p>
+                            </div>
+                        </div>
+                        <div class="history-playlist-info">
+                            <img src="${playlistImg}" alt="${playlistName}" class="history-playlist-img">
+                            <span>${playlistName}</span>
+                        </div>
+                        <button class="remove-history-button" onclick="removeTrackFromPlaylist(${index})">
+                            <span>Retirer</span>
+                        </button>
+                    </div>
+                `;
+            });
+            
+            historyItems.innerHTML = html;
+        }
+        
+        // Fonction pour ajouter un élément à l'historique
+        function addToHistory(track, playlist) {
+            addHistory.push({
+                track: track,
+                playlist: playlist,
+                timestamp: Date.now()
+            });
+            
+            updateHistory();
+        }
+        
+        // Fonction pour retirer une piste d'une playlist depuis l'historique
+        function removeTrackFromPlaylist(historyIndex) {
+            if (historyIndex < 0 || historyIndex >= addHistory.length) return;
+            
+            const historyItem = addHistory[historyIndex];
+            const track = historyItem.track;
+            const playlist = historyItem.playlist;
+            
+            // Afficher un indicateur de chargement dans l'élément d'historique
+            const historyItems = document.querySelectorAll('.history-item');
+            if (historyItems[historyIndex]) {
+                historyItems[historyIndex].classList.add('loading');
+                historyItems[historyIndex].innerHTML = '<div class="loading">Suppression en cours...</div>';
+            }
+            
+            // Envoyer la requête à l'API
+            fetch(`/api/playlist/${playlist.id}/remove-track`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    trackUri: `spotify:track:${track.id}`
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`API responded with status ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Supprimer l'élément de l'historique
+                addHistory.splice(historyIndex, 1);
+                
+                // Mettre à jour les résultats du tri
+                const targetPlaylist = sortingResults.targetPlaylists.find(p => p.id === playlist.id);
+                if (targetPlaylist && targetPlaylist.addedTracks > 0) {
+                    targetPlaylist.addedTracks--;
+                }
+                
+                // Mettre à jour l'historique
+                updateHistory();
+                
+                // Si le morceau actuel est dans une playlist de laquelle il vient d'être retiré,
+                // mettre à jour les boutons cibles
+                if (currentTrackIndex < playlistTracks.length) {
+                    const currentTrack = playlistTracks[currentTrackIndex];
+                    if (currentTrack.id === track.id) {
+                        const index = currentTrackAddedTo.indexOf(playlist.id);
+                        if (index !== -1) {
+                            currentTrackAddedTo.splice(index, 1);
+                            updateTargetButtons();
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error removing track from playlist:', error);
+                
+                // Restaurer l'élément d'historique en cas d'erreur et afficher l'erreur
+                updateHistory();
+                alert(`Erreur lors de la suppression: ${error.message}`);
+            });
         }
     </script>
 </body>

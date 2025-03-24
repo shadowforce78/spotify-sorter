@@ -362,3 +362,59 @@ app.post('/api/playlist/:id/add-track', express.json(), function (req, res) {
         });
     });
 });
+
+// Route pour retirer une piste d'une playlist
+app.post('/api/playlist/:id/remove-track', express.json(), function (req, res) {
+    if (!userData || !userData.tokens || !userData.profile) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const playlistId = req.params.id;
+    const { trackUri } = req.body;
+    
+    if (!trackUri) {
+        return res.status(400).json({ error: 'Track URI is required' });
+    }
+
+    const access_token = userData.tokens.access_token;
+    const userId = userData.profile.id;
+
+    // Vérifier d'abord les permissions
+    axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+        headers: {
+            'Authorization': 'Bearer ' + access_token
+        }
+    })
+    .then(response => {
+        const playlist = response.data;
+        const isOwner = playlist.owner.id === userId;
+        const isCollaborative = playlist.collaborative === true;
+        
+        if (!isOwner && !isCollaborative) {
+            throw new Error('You do not have permission to modify this playlist');
+        }
+        
+        // Si les permissions sont OK, retirer la piste
+        return axios.delete(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+            headers: {
+                'Authorization': 'Bearer ' + access_token,
+                'Content-Type': 'application/json'
+            },
+            data: {
+                tracks: [{ uri: trackUri }]
+            }
+        });
+    })
+    .then(response => {
+        res.json({ success: true, data: response.data });
+    })
+    .catch(error => {
+        if (error.message === 'You do not have permission to modify this playlist') {
+            return res.status(403).json({ error: error.message });
+        }
+        console.error('Error removing track from playlist:', error.response ? error.response.data : error.message);
+        res.status(error.response ? error.response.status : 500).json({ 
+            error: error.response ? error.response.data : error.message 
+        });
+    });
+});
