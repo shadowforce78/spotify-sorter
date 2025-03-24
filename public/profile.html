@@ -74,8 +74,8 @@
             .then(data => {
                 if (!data) return; // Si redirection vers login, ne rien faire d'autre
 
-                console.log("Données reçues:", data);
-                showDebug(data); // Afficher les données pour le débogage
+                //console.log("Données reçues:", data);
+                //showDebug(data); // Afficher les données pour le débogage
 
                 if (!data.profile || !data.playlists) {
                     throw new Error('Incomplete user data received');
