@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 63247;
 var client_id = process.env.SPOTIFY_CLIENT_ID;
 var client_secret = process.env.SPOTIFY_CLIENT_SECRET;
 //var redirect_uri = 'http://localhost:63247/api/auth/callback/spotify';
- var redirect_uri = 'https://sortify.saumondeluxe.com/api/auth/callback/spotify';
+var redirect_uri = 'https://sortify.saumondeluxe.com/api/auth/callback/spotify';
 
 var app = express();
 
@@ -217,14 +217,14 @@ app.get('/api/playlist/:id/check-permissions', function (req, res) {
             if (!response.data) {
                 throw new Error('No playlist data returned from Spotify API');
             }
-            
+
             const playlist = response.data;
-            
+
             // Vérifier que nous avons bien les infos du propriétaire
             if (!playlist.owner || !playlist.owner.id) {
                 throw new Error('Owner information missing from playlist data');
             }
-            
+
             // Vérifier si l'utilisateur est propriétaire ou si la playlist est collaborative
             const isOwner = playlist.owner.id === userId;
             const isCollaborative = playlist.collaborative === true;
