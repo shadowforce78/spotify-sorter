@@ -104,6 +104,12 @@
                         <h3 id="track-title">Titre de la chanson</h3>
                         <p id="track-artist">Artiste</p>
                         <p id="track-album">Album</p>
+                        <!-- Add Spotify Attribution -->
+                        <div class="spotify-attribution">
+                            <img src="icons/Spotify_Icon_RGB_White.png" alt="Spotify" class="spotify-logo">
+                            <span>Fourni par</span>
+                            <a href="" id="spotify-track-link" class="spotify-link" target="_blank">Écouter sur Spotify</a>
+                        </div>
                     </div>
                 </div>
                 
@@ -794,6 +800,8 @@
             
             // Mettre à jour les informations de la piste
             trackTitleEl.textContent = track.name;
+            // Update Spotify link
+            document.getElementById('spotify-track-link').href = track.external_urls.spotify;
             trackArtistEl.textContent = track.artists.map(artist => artist.name).join(', ');
             trackAlbumEl.textContent = track.album.name;
             

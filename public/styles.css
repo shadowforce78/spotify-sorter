@@ -684,3 +684,61 @@ button.primary:disabled {
         grid-template-columns: 1fr;
     }
 }
+
+/* Terms Modal */
+.terms-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.terms-content {
+    background-color: #282828;
+    padding: 30px;
+    border-radius: 8px;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.terms-content h2 {
+    color: #1DB954;
+    margin-top: 0;
+}
+
+.terms-buttons {
+    margin-top: 20px;
+    text-align: right;
+}
+
+/* Spotify Attribution */
+.spotify-attribution {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #b3b3b3;
+    font-size: 0.8rem;
+    margin-top: 8px;
+}
+
+.spotify-logo {
+    height: 20px;
+    width: auto;
+}
+
+.spotify-link {
+    color: #1DB954;
+    text-decoration: none;
+}
+
+.spotify-link:hover {
+    text-decoration: underline;
+}

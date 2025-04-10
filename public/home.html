@@ -156,11 +156,30 @@
                 </ol>
                 <p>L'application sera alors disponible sur votre écran d'accueil comme une application native!</p>
             </div>
+            
+            <!-- Add Terms Modal -->
+            <div id="termsModal" class="terms-modal" style="display: none;">
+                <div class="terms-content">
+                    <h2>Conditions d'utilisation</h2>
+                    <p>En utilisant cette application, vous acceptez les conditions suivantes :</p>
+                    <ul>
+                        <li>Cette application utilise l'API Spotify et nécessite un compte Spotify.</li>
+                        <li>Les contenus musicaux sont fournis par Spotify et restent leur propriété.</li>
+                        <li>Vous acceptez de respecter les conditions d'utilisation de Spotify.</li>
+                        <li>Nous ne stockons pas vos données personnelles.</li>
+                    </ul>
+                    <p>Pour plus d'informations, consultez les <a href="https://www.spotify.com/legal/end-user-agreement/" target="_blank" class="spotify-link">conditions d'utilisation de Spotify</a>.</p>
+                    <div class="terms-buttons">
+                        <button onclick="acceptTerms()" class="button">J'accepte</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <script>
         // Vérifier si l'utilisateur est déjà connecté
         document.addEventListener('DOMContentLoaded', function() {
+            checkTermsAcceptance();
             // Vérifier si un token existe dans le localStorage et s'il est valide
             const accessToken = localStorage.getItem('spotify_access_token');
             const expirationTime = localStorage.getItem('spotify_token_expiration');
@@ -250,6 +269,19 @@
                 installButton.style.display = 'none';
                 deferredPrompt = null;
             });
+        }
+
+        // Check for terms acceptance
+        function checkTermsAcceptance() {
+            const accepted = localStorage.getItem('terms_accepted');
+            if (!accepted) {
+                document.getElementById('termsModal').style.display = 'flex';
+            }
+        }
+
+        function acceptTerms() {
+            localStorage.setItem('terms_accepted', 'true');
+            document.getElementById('termsModal').style.display = 'none';
         }
     </script>
     </body>
