@@ -730,8 +730,52 @@
                         throw new Error('No tracks found in the source playlist');
                     }
                     
-                    // Stocker les pistes
-                    playlistTracks = data.items.map(item => item.track).filter(track => track !== null);
+                    console.log('Raw API response:', data);
+                    
+                    // Vérifier spécifiquement la présence des URLs de preview
+                    const hasPreviewUrls = data.items.some(item => 
+                        (item.track && item.track.preview_url) ? true : false
+                    );
+                    
+                    console.log('Tracks with preview URLs available:', hasPreviewUrls ? 'Yes' : 'No');
+                    
+                    // Extraire les pistes avec une logique plus robuste
+                    let extractedTracks = [];
+                    
+                    // Vérifier si les tracks sont dans items[].track (format standard)
+                    if (data.items[0] && data.items[0].hasOwnProperty('track')) {
+                        extractedTracks = data.items
+                            .map(item => item.track)
+                            .filter(track => track !== null && track !== undefined);
+                    } 
+                    // Format alternatif: les tracks sont directement dans items[]
+                    else if (data.items[0] && (data.items[0].name || data.items[0].id)) {
+                        extractedTracks = data.items.filter(track => track !== null && track !== undefined);
+                    }
+                    // Dernier recours: parcourir les items et rechercher tout ce qui ressemble à une track
+                    else {
+                        console.warn("Format de données inattendu, tentative d'extraction manuelle des tracks");
+                        extractedTracks = data.items.map(item => {
+                            // Trouver l'objet qui semble être une track dans l'item
+                            if (item.track) return item.track;
+                            if (item.name && item.id) return item;
+                            // Chercher un objet à la racine qui a name et id (pourrait être la track)
+                            for (const key in item) {
+                                if (typeof item[key] === 'object' && item[key] && item[key].name && item[key].id) {
+                                    return item[key];
+                                }
+                            }
+                            return null;
+                        }).filter(track => track !== null);
+                    }
+                    
+                    console.log('Extracted tracks:', extractedTracks);
+                    
+                    if (extractedTracks.length === 0) {
+                        throw new Error('Failed to extract track data from API response');
+                    }
+                    
+                    playlistTracks = extractedTracks;
                     sortingResults.totalTracks = playlistTracks.length;
                     currentTrackIndex = 0;
                     
@@ -754,7 +798,7 @@
                     }
                 });
         }
-        
+
         // Fonction pour mettre à jour l'interface de tri
         function updateSortingInterface() {
             // Vérifier si nous avons atteint la fin de la liste des pistes
@@ -768,6 +812,7 @@
             currentTrackAddedTo = [];
             
             const track = playlistTracks[currentTrackIndex];
+            console.log('Current track data:', track);
             
             // Vérifier que les éléments DOM existent avant de les mettre à jour
             const currentTrackNumberEl = document.getElementById('current-track-number');
@@ -781,11 +826,12 @@
             const targetButtonsEl = document.getElementById('target-buttons');
             const previousButtonEl = document.getElementById('previous-button');
             const nextTrackButtonEl = document.getElementById('next-track-button');
+            const spotifyTrackLinkEl = document.getElementById('spotify-track-link');
             
             // Vérifier que tous les éléments existent
             if (!currentTrackNumberEl || !totalTracksEl || !progressFillEl || !trackTitleEl || 
                 !trackArtistEl || !trackAlbumEl || !trackImageEl || !audioPlayerEl || 
-                !targetButtonsEl || !previousButtonEl || !nextTrackButtonEl) {
+                !targetButtonsEl || !previousButtonEl || !nextTrackButtonEl || !spotifyTrackLinkEl) {
                 console.error('Certains éléments DOM requis sont manquants');
                 return;
             }
@@ -798,37 +844,89 @@
             const progressPercentage = ((currentTrackIndex) / playlistTracks.length) * 100;
             progressFillEl.style.width = `${progressPercentage}%`;
             
-            // Mettre à jour les informations de la piste
-            trackTitleEl.textContent = track.name;
-            // Update Spotify link
-            document.getElementById('spotify-track-link').href = track.external_urls.spotify;
-            trackArtistEl.textContent = track.artists.map(artist => artist.name).join(', ');
-            trackAlbumEl.textContent = track.album.name;
+            // Mettre à jour les informations de la piste avec vérification des données
+            trackTitleEl.textContent = track?.name || 'Titre inconnu';
             
-            // Mettre à jour l'image de l'album
-            const albumImg = track.album.images && track.album.images.length > 0 ?
-                track.album.images[0].url : 'default-album.png';
+            // Vérifier l'existence des URL externes Spotify
+            if (track?.external_urls?.spotify) {
+                spotifyTrackLinkEl.href = track.external_urls.spotify;
+            } else {
+                spotifyTrackLinkEl.href = 'https://open.spotify.com';
+            }
+            
+            // Gérer les artistes avec vérification d'existence
+            if (track?.artists && Array.isArray(track.artists)) {
+                trackArtistEl.textContent = track.artists.map(artist => artist?.name || 'Artiste inconnu').join(', ');
+            } else {
+                trackArtistEl.textContent = 'Artiste inconnu';
+            }
+            
+            // Gérer l'album avec vérification d'existence
+            if (track?.album?.name) {
+                trackAlbumEl.textContent = track.album.name;
+            } else {
+                trackAlbumEl.textContent = 'Album inconnu';
+            }
+            
+            // Mettre à jour l'image de l'album avec vérification d'existence
+            let albumImg = 'default-album.png';
+            if (track?.album?.images && track.album.images.length > 0) {
+                albumImg = track.album.images[0].url;
+            }
             trackImageEl.src = albumImg;
             
-            // Mettre à jour le lecteur audio
+            // Mettre à jour le lecteur audio avec une meilleure gestion des erreurs
             const playerContainer = document.querySelector('.player-container');
             // Nettoyer les messages d'erreur précédents
             const errorMessages = playerContainer.querySelectorAll('.error');
             errorMessages.forEach(el => el.remove());
             
-            if (track.preview_url) {
-                audioPlayerEl.src = track.preview_url;
-                audioPlayerEl.disabled = false;
-                try {
-                    audioPlayerEl.play().catch(e => {
-                        console.warn('Autoplay prevented by browser', e);
-                    });
-                } catch (e) {
-                    console.warn('Error playing audio', e);
-                }
+            // Loguer l'URL du preview pour débogage
+            console.log('Track preview URL:', track?.preview_url);
+            
+            if (track?.preview_url) {
+                // Créer un nouvel élément audio à chaque fois pour éviter les problèmes de cache
+                const newAudioPlayer = document.createElement('audio');
+                newAudioPlayer.id = 'audio-player';
+                newAudioPlayer.controls = true;
+                newAudioPlayer.preload = 'auto';
+                newAudioPlayer.crossOrigin = 'anonymous'; // Ajouter pour éviter les problèmes CORS
+                
+                // Configurer les événements avant de définir la source
+                newAudioPlayer.addEventListener('error', (e) => {
+                    console.error('Audio player error:', e);
+                    playerContainer.innerHTML = '';
+                    playerContainer.appendChild(newAudioPlayer);
+                    playerContainer.insertAdjacentHTML('beforeend', 
+                        `<p class="error">Erreur de lecture: ${e.target.error?.message || 'Problème inconnu'}</p>`);
+                });
+                
+                newAudioPlayer.addEventListener('canplaythrough', () => {
+                    console.log('Audio ready to play');
+                });
+                
+                // Remplacer l'ancien lecteur par le nouveau
+                playerContainer.innerHTML = '';
+                playerContainer.appendChild(newAudioPlayer);
+                
+                // Ajouter la source après avoir attaché l'élément au DOM
+                newAudioPlayer.src = track.preview_url;
+                
+                // Essayer de lancer la lecture automatiquement (peut être bloqué par le navigateur)
+                setTimeout(() => {
+                    newAudioPlayer.play()
+                        .then(() => console.log('Audio playback started'))
+                        .catch(e => {
+                            console.warn('Autoplay prevented by browser:', e);
+                            playerContainer.insertAdjacentHTML('beforeend', 
+                                '<p class="error">Lecture automatique bloquée. Cliquez sur play pour écouter l\'aperçu.</p>');
+                        });
+                }, 100);
             } else {
                 audioPlayerEl.src = '';
                 audioPlayerEl.disabled = true;
+                playerContainer.innerHTML = '';
+                playerContainer.appendChild(audioPlayerEl);
                 playerContainer.insertAdjacentHTML('beforeend', 
                     '<p class="error">Aperçu audio non disponible pour ce morceau.</p>');
             }
@@ -842,37 +940,7 @@
             // Activer le bouton suivant
             nextTrackButtonEl.disabled = false;
         }
-        
-        // Fonction pour mettre à jour les boutons de playlist cible
-        function updateTargetButtons() {
-            const targetButtonsEl = document.getElementById('target-buttons');
-            if (!targetButtonsEl) return;
-            
-            let buttonsHtml = '';
-            
-            selectedTargetPlaylists.forEach(playlist => {
-                const playlistImg = playlist.images && playlist.images.length > 0 ?
-                    playlist.images[0].url : 'default-playlist.png';
-                
-                // Vérifier si le morceau a déjà été ajouté à cette playlist
-                const isAlreadyAdded = currentTrackAddedTo.includes(playlist.id);
-                const addedClass = isAlreadyAdded ? 'added' : '';
-                const addedText = isAlreadyAdded ? '<span class="added-text">✓ Ajouté</span>' : '';
-                
-                buttonsHtml += `
-                    <button class="target-button ${addedClass}" onclick="addTrackToPlaylist('${playlist.id}')">
-                        <img src="${playlistImg}" alt="${playlist.name}" class="playlist-icon">
-                        <div class="playlist-button-text">
-                            <span>${playlist.name}</span>
-                            ${addedText}
-                        </div>
-                    </button>
-                `;
-            });
-            
-            targetButtonsEl.innerHTML = buttonsHtml;
-        }
-        
+
         // Fonction pour ajouter une piste à une playlist cible
         function addTrackToPlaylist(playlistId) {
             if (currentTrackIndex >= playlistTracks.length) return;

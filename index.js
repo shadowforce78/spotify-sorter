@@ -18,8 +18,8 @@ const PORT = process.env.PORT || 63247;
 
 var client_id = process.env.SPOTIFY_CLIENT_ID;
 var client_secret = process.env.SPOTIFY_CLIENT_SECRET;
-//var redirect_uri = 'http://localhost:63247/api/auth/callback/spotify';
-var redirect_uri = 'https://sortify.saumondeluxe.com/api/auth/callback/spotify';
+var redirect_uri = 'http://localhost:63247/api/auth/callback/spotify';
+// var redirect_uri = 'https://sortify.saumondeluxe.com/api/auth/callback/spotify';
 
 var app = express();
 
@@ -175,7 +175,8 @@ app.get('/api/playlist/:id/tracks', function (req, res) {
     const playlistId = req.params.id;
 
     // Paramètres pour limiter le nombre de champs retournés et réduire la taille de la réponse
-    const fields = 'items(track(id,name,artists,album,duration_ms,preview_url)),total';
+    // Ajout de external_urls pour le lien vers Spotify et s'assurer que preview_url est bien inclus
+    const fields = 'items(track(id,name,artists,album,duration_ms,preview_url,external_urls)),total';
     const limit = 100; // Maximum autorisé par l'API Spotify
 
     axios.get(`https://api.spotify.com/v1/playlists/${playlistId}/tracks?fields=${fields}&limit=${limit}`, {
